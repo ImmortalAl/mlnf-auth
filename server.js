@@ -25,14 +25,12 @@ app.use('/api/auth', process.env.NODE_ENV === 'production' ? authLimiter : (req,
 const corsOptions = {
   origin: function (origin, callback) {
     const allowedOrigins = [
-      'https://mlnf.net',              // Your future custom domain
-      'https://mlnf-yourname.netlify.app', // Placeholder: Replace with your Netlify URL
-      'http://localhost:3000',         // Local dev
-      'http://127.0.0.1:3000',         // Local dev alternative
-      'http://localhost',              // Catch-all local
-      'http://127.0.0.1'               // Catch-all local alternative
+      'https://mlnf.net',                        // Future custom domain
+      'https://dashing-belekoy-7a0095.netlify.app', // Your Netlify URL
+      'http://localhost:3000',                  // Local dev
+      'http://127.0.0.1:3000'                   // Local dev alternative
     ];
-    console.log('Request Origin:', origin); // Debug log for deployment
+    console.log('Request Origin:', origin); // Debug log
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
@@ -44,20 +42,27 @@ const corsOptions = {
   credentials: true,
   optionsSuccessStatus: 204
 };
-app.use(cors(corsOptions)); // Removed duplicate cors line
+app.use(cors(corsOptions));
 
 // ======= Body Parsing =======
 app.use(express.json());
 
 // ======= Database Connection =======
-const mongoURI = process.env.MONGO_URI; // Rely solely on env var in production
+const mongoURI = process.env.MONGO_URI;
+if (!mongoURI) {
+  console.error('💀 MONGO_URI not set in environment variables');
+  process.exit(1);
+}
 mongoose.connect(mongoURI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
   serverSelectionTimeoutMS: 5000
 })
   .then(() => console.log('🌀 Connected to Eternal Database'))
-  .catch(err => console.error('💀 Database connection failed:', err));
+  .catch(err => {
+    console.error('💀 Database connection failed:', err);
+    process.exit(1);
+  });
 
 // ======= User Schema =======
 const userSchema = new mongoose.Schema({
@@ -100,7 +105,7 @@ app.post('/api/auth/register', async (req, res) => {
     const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
     res.json({ token, message: 'Registration successful' });
   } catch (error) {
-    res.status(400).json({ error: 'Registration failed: ' + error.message });
+    res.status(400).json({ error: 'Username already taken or invalid input' });
   }
 });
 
@@ -117,7 +122,7 @@ app.post('/api/auth/login', async (req, res) => {
     const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
     res.json({ token, message: 'Login successful' });
   } catch (error) {
-    res.status(500).json({ error: 'Login failed: ' + error.message });
+    res.status(500).json({ error: 'Server error - please try again' });
   }
 });
 
@@ -139,7 +144,7 @@ app.post('/api/posts', authMiddleware, async (req, res) => {
     await post.save();
     res.json({ post, message: 'Post created' });
   } catch (error) {
-    res.status(400).json({ error: 'Post creation failed: ' + error.message });
+    res.status(400).json({ error: 'Post creation failed' });
   }
 });
 
@@ -148,7 +153,7 @@ app.get('/api/posts', async (req, res) => {
     const posts = await Post.find().populate('author', 'username');
     res.json(posts);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to retrieve posts: ' + error.message });
+    res.status(500).json({ error: 'Failed to retrieve posts' });
   }
 });
 
