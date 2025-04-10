@@ -1,0 +1,136 @@
+﻿require('dotenv').config();
+const express = require('express');
+const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+
+const app = express();
+
+// ======= Security Middleware =======
+app.use(helmet());
+app.set('trust proxy', 1);
+
+// Rate limiting for auth endpoints
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: 'Too many authentication attempts - try again later'
+});
+app.use('/api/auth', authLimiter);
+
+// ======= CORS Configuration =======
+const corsOptions = {
+  origin: [
+    'https://mlnf.net',
+    'http://localhost',
+    'http://127.0.0.1'
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+  optionsSuccessStatus: 204
+};
+app.use(cors(corsOptions));
+
+// ======= Body Parsing =======
+app.use(express.json());
+
+// ======= Database Connection =======
+mongoose.connect(process.env.MONGO_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+  serverSelectionTimeoutMS: 5000
+})
+.then(() => console.log('🌀 Connected to Eternal Database'))
+.catch(err => console.error('💀 Database connection failed:', err));
+
+// ======= User Schema =======
+const userSchema = new mongoose.Schema({
+  username: { type: String, unique: true, required: true },
+  password: { type: String, required: true },
+  joined: { type: Date, default: Date.now }
+});
+
+// Password hashing middleware
+userSchema.pre('save', async function(next) {
+  if (this.isModified('password')) {
+    this.password = await bcrypt.hash(this.password, 12);
+  }
+  next();
+});
+
+const User = mongoose.model('User', userSchema);
+
+// ======= Authentication Routes =======
+app.post('/api/auth/register', async (req, res) => {
+  try {
+    const user = new User(req.body);
+    await user.save();
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET);
+    res.json({ token });
+  } catch (error) {
+    res.status(400).json({ error: 'Registration failed: ' + error.message });
+  }
+});
+
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const user = await User.findOne({ username: req.body.username });
+    if (!user || !await bcrypt.compare(req.body.password, user.password)) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET);
+    res.json({ token });
+  } catch (error) {
+    res.status(500).json({ error: 'Login failed' });
+  }
+});
+
+// ======= Community Features =======
+const postSchema = new mongoose.Schema({
+  content: { type: String, required: true },
+  author: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  timestamp: { type: Date, default: Date.now }
+});
+
+const Post = mongoose.model('Post', postSchema);
+
+app.post('/api/posts', async (req, res) => {
+  try {
+    const post = new Post({
+      content: req.body.content,
+      author: req.userId
+    });
+    await post.save();
+    res.json(post);
+  } catch (error) {
+    res.status(400).json({ error: 'Post creation failed' });
+  }
+});
+
+app.get('/api/posts', async (req, res) => {
+  try {
+    const posts = await Post.find().populate('author');
+    res.json(posts);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to retrieve posts' });
+  }
+});
+
+// ======= HTTPS Enforcement =======
+app.use((req, res, next) => {
+  if (process.env.NODE_ENV === 'production' && 
+      req.headers['x-forwarded-proto'] !== 'https') {
+    return res.redirect(`https://${req.headers.host}${req.url}`);
+  }
+  next();
+});
+
+// ======= Server Initialization =======
+const PORT = process.env.PORT || 3001;
+app.listen(PORT, () => {
+  console.log(`🌌 Server listening on port ${PORT}`);
+});
