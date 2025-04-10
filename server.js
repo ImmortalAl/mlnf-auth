@@ -16,7 +16,7 @@ app.set('trust proxy', 1);
 // Rate limiting for auth endpoints
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit requests per IP
+  max: 100,
   message: 'Too many authentication attempts - try again later'
 });
 app.use('/api/auth', process.env.NODE_ENV === 'production' ? authLimiter : (req, res, next) => next());
@@ -25,12 +25,11 @@ app.use('/api/auth', process.env.NODE_ENV === 'production' ? authLimiter : (req,
 const corsOptions = {
   origin: function (origin, callback) {
     const allowedOrigins = [
-      'https://mlnf.net',                        // Future custom domain
-      'https://dashing-belekoy-7a0095.netlify.app', // Your Netlify URL
-      'http://localhost:3000',                  // Local dev
-      'http://127.0.0.1:3000'                   // Local dev alternative
+      'https://mlnf.net',
+      'https://dashing-belekoy-7a0095.netlify.app',
+      'http://localhost:3000',
+      'http://127.0.0.1:3000'
     ];
-    console.log('Request Origin:', origin); // Debug log
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
@@ -44,13 +43,21 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 
+// Handle CORS errors gracefully
+app.use((err, req, res, next) => {
+  if (err.message === 'Not allowed by CORS') {
+    return res.status(403).json({ error: 'CORS policy violation' });
+  }
+  next(err);
+});
+
 // ======= Body Parsing =======
 app.use(express.json());
 
 // ======= Database Connection =======
 const mongoURI = process.env.MONGO_URI;
 if (!mongoURI) {
-  console.error('💀 MONGO_URI not set in environment variables');
+  console.error('💀 MONGO_URI not set');
   process.exit(1);
 }
 mongoose.connect(mongoURI, {
