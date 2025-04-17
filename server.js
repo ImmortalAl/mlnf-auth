@@ -26,6 +26,7 @@ const corsOptions = {
   origin: function (origin, callback) {
     const allowedOrigins = [
       'https://mlnf-auth.onrender.com',
+      'https://mlnf-frontend.onrender.com',
       'https://mlnf.net',
       'https://dashing-belekoy-7a0095.netlify.app',
       'http://localhost:3000',
@@ -55,6 +56,12 @@ app.use((err, req, res, next) => {
 // ======= Body Parsing =======
 app.use(express.json());
 
+// ======= Request Logging =======
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  next();
+});
+
 // ======= Database Connection =======
 const mongoURI = process.env.MONGO_URI;
 if (!mongoURI) {
@@ -64,13 +71,27 @@ if (!mongoURI) {
 mongoose.connect(mongoURI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
-  serverSelectionTimeoutMS: 5000
+  serverSelectionTimeoutMS: 5000,
+  autoIndex: true,
+  maxPoolSize: 10,
+  socketTimeoutMS: 45000,
+  family: 4
 })
   .then(() => console.log('🌀 Connected to Eternal Database'))
   .catch(err => {
     console.error('💀 Database connection failed:', err);
     process.exit(1);
   });
+
+// Handle MongoDB reconnection
+mongoose.connection.on('disconnected', () => {
+  console.log('🌀 MongoDB disconnected, attempting to reconnect...');
+  mongoose.connect(mongoURI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+    serverSelectionTimeoutMS: 5000
+  });
+});
 
 // ======= User Schema =======
 const userSchema = new mongoose.Schema({
@@ -103,12 +124,16 @@ const Message = mongoose.model('Message', messageSchema);
 // ======= Authentication Middleware =======
 const authMiddleware = async (req, res, next) => {
   const token = req.headers.authorization?.split(' ')[1];
-  if (!token) return res.status(401).json({ error: 'No token provided' });
+  if (!token) {
+    console.log('🔒 No token provided');
+    return res.status(401).json({ error: 'No token provided' });
+  }
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
     req.user = { id: decoded.userId, username: decoded.username };
     next();
   } catch (error) {
+    console.error('🔒 Invalid token:', error.message);
     res.status(401).json({ error: 'Invalid token' });
   }
 };
@@ -122,9 +147,10 @@ app.post('/api/auth/register', async (req, res) => {
   try {
     const user = new User({ username, password });
     await user.save();
-    const token = jwt.sign({ userId: user._id, username }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    const token = jwt.sign({ userId: user._id, username }, process.env.JWT_SECRET || 'your-secret-key', { expiresIn: '1h' });
     res.json({ token, message: 'Registration successful' });
   } catch (error) {
+    console.error('Error registering user:', error);
     res.status(400).json({ error: 'Username already taken or invalid input' });
   }
 });
@@ -139,10 +165,22 @@ app.post('/api/auth/login', async (req, res) => {
     if (!user || !(await bcrypt.compare(password, user.password))) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
-    const token = jwt.sign({ userId: user._id, username }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    await User.updateOne({ username }, { status: 'Online' });
+    const token = jwt.sign({ userId: user._id, username }, process.env.JWT_SECRET || 'your-secret-key', { expiresIn: '1h' });
     res.json({ token, message: 'Login successful' });
   } catch (error) {
+    console.error('Error logging in:', error);
     res.status(500).json({ error: 'Server error - please try again' });
+  }
+});
+
+app.post('/api/auth/logout', authMiddleware, async (req, res) => {
+  try {
+    await User.findByIdAndUpdate(req.user.id, { status: 'Offline' });
+    res.json({ message: 'Logout successful' });
+  } catch (error) {
+    console.error('Logout error:', error);
+    res.status(500).json({ error: 'Failed to logout' });
   }
 });
 
@@ -164,6 +202,7 @@ app.post('/api/posts', authMiddleware, async (req, res) => {
     await post.save();
     res.json({ post, message: 'Post created' });
   } catch (error) {
+    console.error('Error creating post:', error);
     res.status(400).json({ error: 'Post creation failed' });
   }
 });
@@ -173,6 +212,7 @@ app.get('/api/posts', async (req, res) => {
     const posts = await Post.find().populate('author', 'username');
     res.json(posts);
   } catch (error) {
+    console.error('Error fetching posts:', error);
     res.status(500).json({ error: 'Failed to retrieve posts' });
   }
 });
@@ -180,6 +220,7 @@ app.get('/api/posts', async (req, res) => {
 // ======= Messaging Endpoints =======
 app.get('/api/users/online', authMiddleware, async (req, res) => {
   try {
+    console.log(`Fetching online users for ${req.user.username}`);
     const users = await User.find({ status: 'Online' }).select('username status avatar');
     res.json(users);
   } catch (error) {
@@ -194,6 +235,10 @@ app.post('/api/messages/send', authMiddleware, async (req, res) => {
     return res.status(400).json({ error: 'Recipient and message required' });
   }
   try {
+    const recipientUser = await User.findOne({ username: recipient });
+    if (!recipientUser) {
+      return res.status(404).json({ error: 'Recipient not found' });
+    }
     const newMessage = new Message({
       sender: req.user.username,
       recipient,
@@ -233,6 +278,12 @@ app.get('/api/messages/history', authMiddleware, async (req, res) => {
 // ======= Health Check Endpoint =======
 app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'OK', message: 'Server is alive' });
+});
+
+// ======= Fallback Route =======
+app.use((req, res) => {
+  console.log(`Route not found: ${req.method} ${req.url}`);
+  res.status(404).json({ error: `Cannot ${req.method} ${req.url}` });
 });
 
 // ======= HTTPS Enforcement =======
