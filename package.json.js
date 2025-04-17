@@ -6,9 +6,13 @@
     "start": "node server.js"
   },
   "dependencies": {
-    "express": "^4.17.1",
-    "jsonwebtoken": "^8.5.1",
-    "mongodb": "^4.0.0",
-    "cors": "^2.8.5"
+    "express": "^4.21.0",
+    "mongoose": "^8.7.0",
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.2",
+    "cors": "^2.8.5",
+    "helmet": "^7.1.0",
+    "express-rate-limit": "^7.4.0",
+    "dotenv": "^16.4.5"
   }
 }
