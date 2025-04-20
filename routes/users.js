@@ -1,18 +1,19 @@
-// routes/users.js
+ // routes/users.js
 const express = require('express');
 const multer = require('multer');
+const path = require('path');
 const authMiddleware = require('../middleware/auth');
 const User = require('../models/User');
 const router = express.Router();
 
 // Multer setup for avatar uploads
 const storage = multer.diskStorage({
-destination: (req, file, cb) => cb(null, '/opt/render/project/src/Uploads'),
+  destination: (req, file, cb) => cb(null, '/opt/render/project/src/Uploads'),
   filename: (req, file, cb) => cb(null, `${Date.now()}-${file.originalname}`)
 });
 const upload = multer({
   storage,
-  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB limit
+  limits: { fileSize: 2 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     if (file.mimetype.startsWith('image/')) cb(null, true);
     else cb(new Error('Invalid file type'), false);
@@ -52,7 +53,7 @@ router.post('/profile', authMiddleware, handleMulterError, async (req, res) => {
     console.log('Profile update request:', { displayName, bio, status, file: req.file });
     const updateData = { displayName, bio, status };
     if (req.file) {
-      updateData.avatar = `/uploads/${req.file.filename}`; // Fixed case
+      updateData.avatar = `https://mlnf-auth.onrender.com/Uploads/${req.file.filename}`;
       console.log('Avatar uploaded:', updateData.avatar);
     }
     const user = await User.findByIdAndUpdate(req.user.id, updateData, { new: true });

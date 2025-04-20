@@ -3,14 +3,14 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
-const fs = require('fs').promises; // For folder creation
+const fs = require('fs').promises;
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
-const blogRoutes = require('./routes/blogs'); // For lander.html
+const blogRoutes = require('./routes/blogs');
 const app = express();
 
-// Create Uploads folder
-const UPLOADS_DIR = '/opt/render/project/src/Uploads'; // Matches users.js
+// Use persistent disk path
+const UPLOADS_DIR = '/opt/render/project/src/Uploads';
 async function ensureUploadsFolder() {
   try {
     await fs.mkdir(UPLOADS_DIR, { recursive: true });
@@ -35,7 +35,7 @@ app.use(cors({
   credentials: true
 }));
 app.use(express.json());
-app.use('/Uploads', express.static(UPLOADS_DIR)); // Serve Uploads statically
+app.use('/Uploads', express.static(UPLOADS_DIR));
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -50,7 +50,7 @@ mongoose.connect(process.env.MONGO_URI)
 // Initialize server
 const PORT = process.env.PORT || 3001;
 async function startServer() {
-  await ensureUploadsFolder(); // Create Uploads before starting
+  await ensureUploadsFolder();
   app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
 }
 
