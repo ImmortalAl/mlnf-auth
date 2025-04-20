@@ -1,57 +1,64 @@
-﻿// server.js
+﻿```javascript
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
-const fs = require('fs').promises;
-const authRoutes = require('./routes/auth');
-const userRoutes = require('./routes/users');
-const blogRoutes = require('./routes/blogs');
+const fs = require('fs');
+const usersRouter = require('./routes/users');
+
 const app = express();
 
-// Use persistent disk path
-const UPLOADS_DIR = '/opt/render/project/src/Uploads';
-async function ensureUploadsFolder() {
-  try {
-    await fs.mkdir(UPLOADS_DIR, { recursive: true });
-    console.log('📁 Uploads folder created at:', UPLOADS_DIR);
-  } catch (error) {
-    console.error('❌ Failed to create Uploads folder:', error.message);
-  }
+// Ensure Uploads folder exists
+const uploadsDir = path.join(__dirname, 'Uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir);
+  console.log(`📁 Uploads folder created at: ${uploadsDir}`);
 }
 
-// Middleware
+// CORS configuration
+const allowedOrigins = [
+  'https://mlnf.net',
+  'https://dashing-belekoy-7a0095.netlify.app',
+  'https://immortalal.github.io',
+  'http://localhost:8080' // For local testing
+];
+
 app.use(cors({
-  origin: [
-    'https://mlnf-auth.onrender.com',
-    'https://mlnf-frontend.onrender.com',
-    'https://mlnf.net',
-    'https://dashing-belekoy-7a0095.netlify.app',
-    'https://immortalal.github.io',
-    'http://localhost:3000',
-    'http://localhost:8080',
-    'http://127.0.0.1:3000'
-  ],
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
 }));
+
+// Handle preflight requests
+app.options('*', cors());
+
+// Middleware
 app.use(express.json());
-app.use('/Uploads', express.static(UPLOADS_DIR));
+app.use('/Uploads', express.static(uploadsDir));
 
 // Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/blogs', blogRoutes);
+app.use('/api/users', usersRouter);
 
-// MongoDB Connection
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log('📚 MongoDB connected'))
-  .catch(err => console.error('❌ MongoDB connection error:', err));
+// MongoDB connection
+mongoose.connect(process.env.MONGODB_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+}).then(() => {
+  console.log('📚 MongoDB connected');
+}).catch(err => {
+  console.error('MongoDB connection error:', err.stack);
+});
 
-// Initialize server
-const PORT = process.env.PORT || 3001;
-async function startServer() {
-  await ensureUploadsFolder();
-  app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
-}
-
-startServer();
+// Start server
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+});
+```
