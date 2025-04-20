@@ -1,63 +1,84 @@
 ﻿const express = require('express');
 const router = express.Router();
-const jwt = require('jsonwebtoken');
-const multer = require('multer');
-const path = require('path');
+const auth = require('../middleware/auth');
 const User = require('../models/User');
-const authMiddleware = require('../middleware/auth');
+const multer = require('multer');
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
+const cloudinary = require('cloudinary').v2;
 
-const UPLOADS_DIR = '/opt/render/project/src/Uploads';
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, UPLOADS_DIR);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
+
+// Configure multer with Cloudinary
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'mlnf_avatars',
+    allowed_formats: ['jpg', 'png', 'jpeg'],
+    transformation: [{ width: 200, height: 200, crop: 'fill' }]
   }
 });
-const upload = multer({ storage });
+const upload = multer({
+  storage: storage,
+  limits: { fileSize: 2 * 1024 * 1024 } // 2MB limit
+});
 
 // Get current user
-router.get('/me', authMiddleware, async (req, res) => {
+router.get('/me', auth, async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select('-password');
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
+    if (!user) return res.status(404).json({ error: 'User not found' });
     res.json(user);
   } catch (error) {
-    console.error('Fetch user error:', error.message);
+    console.error('Get user error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
 
-// Update profile
-router.put('/profile', authMiddleware, upload.single('avatar'), async (req, res) => {
+// Get all users
+router.get('/', auth, async (req, res) => {
   try {
-    const updateData = {};
-    if (req.body.displayName) updateData.displayName = req.body.displayName;
-    if (req.body.bio) updateData.bio = req.body.bio;
-    if (req.body.status) updateData.status = req.body.status;
-    if (req.file) {
-      updateData.avatar = `https://mlnf-auth.onrender.com/Uploads/${req.file.filename}`;
-      console.log('Avatar uploaded:', updateData.avatar);
-    }
-    const user = await User.findByIdAndUpdate(req.user.id, updateData, { new: true }).select('-password');
-    res.json(user);
-  } catch (error) {
-    console.error('Update profile error:', error.message);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-// Get online users
-router.get('/online', authMiddleware, async (req, res) => {
-  try {
-    const users = await User.find({ status: 'online' }).select('username displayName avatar status');
+    const users = await User.find().select('-password');
     res.json(users);
   } catch (error) {
-    console.error('Fetch online users error:', error.message);
+    console.error('Get users error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Get user by ID
+router.get('/:id', auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id).select('-password');
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json(user);
+  } catch (error) {
+    console.error('Get user by ID error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Update user profile
+router.post('/profile', auth, upload.single('avatar'), async (req, res) => {
+  try {
+    const { displayName, bio, status } = req.body;
+    const updateData = { displayName, bio, status };
+    if (req.file) {
+      updateData.avatar = req.file.path; // Cloudinary URL
+    }
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { $set: updateData },
+      { new: true, runValidators: true }
+    ).select('-password');
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json({ message: 'Profile updated', user });
+  } catch (error) {
+    console.error('Update profile error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
