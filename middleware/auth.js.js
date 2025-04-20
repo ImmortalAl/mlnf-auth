@@ -1,20 +1,16 @@
-const mongoose = require('mongoose');
-const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 
-const userSchema = new mongoose.Schema({
-  username: { type: String, required: true, unique: true },
-  password: { type: String, required: true },
-});
-
-// Hash the password before saving the user
-userSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) {
-    return next();
+module.exports = async (req, res, next) => {
+  try {
+    const token = req.header('Authorization')?.replace('Bearer ', '');
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch (error) {
+    console.error('Auth middleware error:', error.message);
+    res.status(401).json({ error: 'Invalid token' });
   }
-  const salt = await bcrypt.genSalt(10);
-  this.password = await bcrypt.hash(this.password, salt);
-  next();
-});
-
-const User = mongoose.model('User', userSchema);
-module.exports = User;
+};
