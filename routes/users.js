@@ -7,7 +7,7 @@ const router = express.Router();
 
 // Multer setup for avatar uploads
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, 'uploads/'),
+destination: (req, file, cb) => cb(null, '/opt/render/project/src/Uploads'),
   filename: (req, file, cb) => cb(null, `${Date.now()}-${file.originalname}`)
 });
 const upload = multer({
