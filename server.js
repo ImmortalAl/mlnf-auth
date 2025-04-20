@@ -15,6 +15,12 @@ const mindmapRoutes = require('./routes/mindmap');
 const newsRoutes = require('./routes/news');
 const app = express();
 
+$serverContent = Get-Content server.js -Raw
+if ($serverContent -notmatch "require\('dotenv'\)\.config\(\);") {
+    $newContent = "require('dotenv').config();`n" + $serverContent
+    Set-Content -Path server.js -Value $newContent
+}
+
 // Use persistent disk path
 const UPLOADS_DIR = '/opt/render/project/src/Uploads';
 async function ensureUploadsFolder() {
