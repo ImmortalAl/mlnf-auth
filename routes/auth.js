@@ -1,42 +1,69 @@
-const express = require('express');
-const router = express.Router();
-const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+﻿const express = require('express');
+const mongoose = require('mongoose');
+const cors = require('cors');
+const path = require('path');
+const fs = require('fs').promises;
+const authRoutes = require('./routes/auth');
+const userRoutes = require('./routes/users');
+const blogRoutes = require('./routes/blogs');
+const app = express();
 
-router.post('/login', async (req, res) => {
+// Use persistent disk path
+const UPLOADS_DIR = '/opt/render/project/src/Uploads';
+async function ensureUploadsFolder() {
   try {
-    const { username, password } = req.body;
-    const user = await User.findOne({ username });
-    if (!user || user.password !== password) { // Replace with bcrypt
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
-    res.json({ token });
+    await fs.mkdir(UPLOADS_DIR, { recursive: true });
+    console.log('Uploads folder created at: ' + UPLOADS_DIR);
   } catch (error) {
-    console.error('Login error:', error.message);
-    res.status(500).json({ error: 'Server error' });
+    console.error('Failed to create Uploads folder: ' + error.message);
   }
-});
+}
 
-router.post('/signup', async (req, res) => {
-  try {
-    const { username, password } = req.body;
-    const existingUser = await User.findOne({ username });
-    if (existingUser) {
-      return res.status(400).json({ error: 'Username taken' });
+// CORS configuration
+const allowedOrigins = [
+  'https://mlnf.net',
+  'https://dashing-belekoy-7a0095.netlify.app',
+  'https://immortalal.github.io',
+  'http://localhost:3000',
+  'http://localhost:8080',
+  'http://127.0.0.1:3000'
+];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
     }
-    const user = new User({ username, password }); // Replace password with bcrypt
-    await user.save();
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
-    res.json({ token });
-  } catch (error) {
-    console.error('Signup error:', error.message);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+}));
 
-router.post('/logout', (req, res) => {
-  res.json({ message: 'Logout successful' });
-});
+// Handle preflight requests
+app.options('*', cors());
 
-module.exports = router;
+// Middleware
+app.use(express.json());
+app.use('/Uploads', express.static(UPLOADS_DIR));
+
+// Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/blogs', blogRoutes);
+
+// MongoDB Connection
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => console.log('MongoDB connected'))
+  .catch(err => console.error('MongoDB connection error: ' + err.message));
+
+// Initialize server
+const PORT = process.env.PORT || 3001;
+async function startServer() {
+  await ensureUploadsFolder();
+  app.listen(PORT, () => console.log('Server running on port ' + PORT));
+}
+
+startServer();

@@ -6,6 +6,13 @@ const fs = require('fs').promises;
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const blogRoutes = require('./routes/blogs');
+const notificationRoutes = require('./routes/notifications');
+const activityRoutes = require('./routes/activity');
+const debateRoutes = require('./routes/debates');
+const mediaRoutes = require('./routes/media');
+const messageRoutes = require('./routes/messages');
+const mindmapRoutes = require('./routes/mindmap');
+const newsRoutes = require('./routes/news');
 const app = express();
 
 // Use persistent disk path
@@ -34,6 +41,7 @@ app.use(cors({
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
+      console.log('CORS error for origin: ' + origin);
       callback(new Error('Not allowed by CORS'));
     }
   },
@@ -49,10 +57,39 @@ app.options('*', cors());
 app.use(express.json());
 app.use('/Uploads', express.static(UPLOADS_DIR));
 
+// Log routes
+app.use((req, res, next) => {
+  console.log('Route accessed: ' + req.method + ' ' + req.path);
+  next();
+});
+
 // Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/blogs', blogRoutes);
+console.log('Mounting routes...');
+try {
+  app.use('/api/auth', authRoutes);
+  console.log('Mounted /api/auth');
+  app.use('/api/users', userRoutes);
+  console.log('Mounted /api/users');
+  app.use('/api/blogs', blogRoutes);
+  console.log('Mounted /api/blogs');
+  app.use('/api/notifications', notificationRoutes);
+  console.log('Mounted /api/notifications');
+  app.use('/api/activity', activityRoutes);
+  console.log('Mounted /api/activity');
+  app.use('/api/debates', debateRoutes);
+  console.log('Mounted /api/debates');
+  app.use('/api/media', mediaRoutes);
+  console.log('Mounted /api/media');
+  app.use('/api/messages', messageRoutes);
+  console.log('Mounted /api/messages');
+  app.use('/api/mindmap', mindmapRoutes);
+  console.log('Mounted /api/mindmap');
+  app.use('/api/news', newsRoutes);
+  console.log('Mounted /api/news');
+} catch (error) {
+  console.error('Error mounting routes:', error.message);
+  throw error;
+}
 
 // MongoDB Connection
 mongoose.connect(process.env.MONGO_URI)

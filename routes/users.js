@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
@@ -51,7 +51,7 @@ router.put('/profile', authMiddleware, upload.single('avatar'), async (req, res)
   }
 });
 
-// Get online users (for active users sidebar)
+// Get online users
 router.get('/online', authMiddleware, async (req, res) => {
   try {
     const users = await User.find({ status: 'online' }).select('username displayName avatar status');
