@@ -2,7 +2,7 @@
   "name": "mlnf-auth",
   "version": "1.0.0",
   "scripts": {
-    "start": "node server.js",
+    "start": "mkdir -p uploads && node server.js",
     "dev": "nodemon server.js"
   },
   "dependencies": {

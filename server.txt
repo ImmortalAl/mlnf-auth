@@ -6,6 +6,16 @@ const jwt = require('jsonwebtoken');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const path = require('path');
+const multer = require('multer');
+const authRoutes = require('./routes/auth');
+const userRoutes = require('./routes/users');
+const messageRoutes = require('./routes/messages');
+const blogRoutes = require('./routes/blogs');
+const debateRoutes = require('./routes/debates');
+const mindmapRoutes = require('./routes/mindmap');
+const mediaRoutes = require('./routes/media');
+const newsRoutes = require('./routes/news');
 
 const app = express();
 
@@ -29,7 +39,9 @@ const corsOptions = {
       'https://mlnf-frontend.onrender.com',
       'https://mlnf.net',
       'https://dashing-belekoy-7a0095.netlify.app',
+      'https://immortalal.github.io',
       'http://localhost:3000',
+      'http://localhost:8080',
       'http://127.0.0.1:3000'
     ];
     if (!origin || allowedOrigins.includes(origin)) {
@@ -55,6 +67,9 @@ app.use((err, req, res, next) => {
 
 // ======= Body Parsing =======
 app.use(express.json());
+
+// ======= File Uploads =======
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ======= Request Logging =======
 app.use((req, res, next) => {
@@ -93,187 +108,15 @@ mongoose.connection.on('disconnected', () => {
   });
 });
 
-// ======= User Schema =======
-const userSchema = new mongoose.Schema({
-  username: { type: String, unique: true, required: true },
-  password: { type: String, required: true },
-  joined: { type: Date, default: Date.now },
-  status: { type: String, default: 'Online' },
-  avatar: { type: String, default: 'https://i.pravatar.cc/40' }
-});
-
-userSchema.pre('save', async function(next) {
-  if (this.isModified('password')) {
-    this.password = await bcrypt.hash(this.password, 12);
-  }
-  next();
-});
-
-const User = mongoose.model('User', userSchema);
-
-// ======= Message Schema =======
-const messageSchema = new mongoose.Schema({
-  sender: { type: String, required: true },
-  recipient: { type: String, required: true },
-  message: { type: String, required: true },
-  timestamp: { type: Date, default: Date.now }
-});
-
-const Message = mongoose.model('Message', messageSchema);
-
-// ======= Authentication Middleware =======
-const authMiddleware = async (req, res, next) => {
-  const token = req.headers.authorization?.split(' ')[1];
-  if (!token) {
-    console.log('🔒 No token provided');
-    return res.status(401).json({ error: 'No token provided' });
-  }
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
-    req.user = { id: decoded.userId, username: decoded.username };
-    next();
-  } catch (error) {
-    console.error('🔒 Invalid token:', error.message);
-    res.status(401).json({ error: 'Invalid token' });
-  }
-};
-
-// ======= Authentication Routes =======
-app.post('/api/auth/register', async (req, res) => {
-  const { username, password } = req.body;
-  if (!username || !password) {
-    return res.status(400).json({ error: 'Username and password required' });
-  }
-  try {
-    const user = new User({ username, password });
-    await user.save();
-    const token = jwt.sign({ userId: user._id, username }, process.env.JWT_SECRET || 'your-secret-key', { expiresIn: '1h' });
-    res.json({ token, message: 'Registration successful' });
-  } catch (error) {
-    console.error('Error registering user:', error);
-    res.status(400).json({ error: 'Username already taken or invalid input' });
-  }
-});
-
-app.post('/api/auth/login', async (req, res) => {
-  const { username, password } = req.body;
-  if (!username || !password) {
-    return res.status(400).json({ error: 'Username and password required' });
-  }
-  try {
-    const user = await User.findOne({ username });
-    if (!user || !(await bcrypt.compare(password, user.password))) {
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
-    await User.updateOne({ username }, { status: 'Online' });
-    const token = jwt.sign({ userId: user._id, username }, process.env.JWT_SECRET || 'your-secret-key', { expiresIn: '1h' });
-    res.json({ token, message: 'Login successful' });
-  } catch (error) {
-    console.error('Error logging in:', error);
-    res.status(500).json({ error: 'Server error - please try again' });
-  }
-});
-
-app.post('/api/auth/logout', authMiddleware, async (req, res) => {
-  try {
-    await User.findByIdAndUpdate(req.user.id, { status: 'Offline' });
-    res.json({ message: 'Logout successful' });
-  } catch (error) {
-    console.error('Logout error:', error);
-    res.status(500).json({ error: 'Failed to logout' });
-  }
-});
-
-// ======= Community Features =======
-const postSchema = new mongoose.Schema({
-  content: { type: String, required: true },
-  author: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  timestamp: { type: Date, default: Date.now }
-});
-
-const Post = mongoose.model('Post', postSchema);
-
-app.post('/api/posts', authMiddleware, async (req, res) => {
-  try {
-    const post = new Post({
-      content: req.body.content,
-      author: req.user.id
-    });
-    await post.save();
-    res.json({ post, message: 'Post created' });
-  } catch (error) {
-    console.error('Error creating post:', error);
-    res.status(400).json({ error: 'Post creation failed' });
-  }
-});
-
-app.get('/api/posts', async (req, res) => {
-  try {
-    const posts = await Post.find().populate('author', 'username');
-    res.json(posts);
-  } catch (error) {
-    console.error('Error fetching posts:', error);
-    res.status(500).json({ error: 'Failed to retrieve posts' });
-  }
-});
-
-// ======= Messaging Endpoints =======
-app.get('/api/users/online', authMiddleware, async (req, res) => {
-  try {
-    console.log(`Fetching online users for ${req.user.username}`);
-    const users = await User.find({ status: 'Online' }).select('username status avatar');
-    res.json(users);
-  } catch (error) {
-    console.error('Error fetching online users:', error);
-    res.status(500).json({ error: 'Failed to fetch online users' });
-  }
-});
-
-app.post('/api/messages/send', authMiddleware, async (req, res) => {
-  const { recipient, message } = req.body;
-  if (!recipient || !message) {
-    return res.status(400).json({ error: 'Recipient and message required' });
-  }
-  try {
-    const recipientUser = await User.findOne({ username: recipient });
-    if (!recipientUser) {
-      return res.status(404).json({ error: 'Recipient not found' });
-    }
-    const newMessage = new Message({
-      sender: req.user.username,
-      recipient,
-      message
-    });
-    await newMessage.save();
-    res.json({ success: true, messageId: newMessage._id });
-  } catch (error) {
-    console.error('Error sending message:', error);
-    res.status(500).json({ error: 'Failed to send message' });
-  }
-});
-
-app.get('/api/messages/history', authMiddleware, async (req, res) => {
-  const { recipient } = req.query;
-  if (!recipient) {
-    return res.status(400).json({ error: 'Recipient required' });
-  }
-  try {
-    const messages = await Message.find({
-      $or: [
-        { sender: req.user.username, recipient },
-        { sender: recipient, recipient: req.user.username }
-      ]
-    }).sort({ timestamp: 1 });
-    res.json(messages.map(msg => ({
-      sender: msg.sender,
-      message: msg.message,
-      timestamp: msg.timestamp.toISOString()
-    })));
-  } catch (error) {
-    console.error('Error fetching message history:', error);
-    res.status(500).json({ error: 'Failed to fetch message history' });
-  }
-});
+// ======= Routes =======
+app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/messages', messageRoutes);
+app.use('/api/blogs', blogRoutes);
+app.use('/api/debates', debateRoutes);
+app.use('/api/mindmap', mindmapRoutes);
+app.use('/api/media', mediaRoutes);
+app.use('/api/news', newsRoutes);
 
 // ======= Health Check Endpoint =======
 app.get('/api/health', (req, res) => {
@@ -292,6 +135,12 @@ app.use((req, res, next) => {
     return res.redirect(`https://${req.headers.host}${req.url}`);
   }
   next();
+});
+
+// ======= Error Handling =======
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ error: 'Internal server error' });
 });
 
 // ======= Server Initialization =======
