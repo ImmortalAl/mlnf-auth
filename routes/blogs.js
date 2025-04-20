@@ -6,11 +6,7 @@ const router = express.Router();
 // Placeholder: Fetch user's blogs
 router.get('/my', authMiddleware, async (req, res) => {
   try {
-    // Replace with MongoDB query
-    const blogs = [
-      { id: 1, title: 'Eternal Thoughts' },
-      { id: 2, title: 'Beyond Time' }
-    ];
+    const blogs = []; // Replace with MongoDB query
     res.json(blogs);
   } catch (error) {
     console.error('Fetch blogs error:', error.stack);
@@ -21,12 +17,11 @@ router.get('/my', authMiddleware, async (req, res) => {
 // Placeholder: Publish blog
 router.post('/', authMiddleware, async (req, res) => {
   try {
-    const { content } = req.body;
-    if (!content) {
-      return res.status(400).json({ error: 'Content required' });
+    const { title, content } = req.body;
+    if (!content || !title) {
+      return res.status(400).json({ error: 'Title and content required' });
     }
-    // Replace with MongoDB save
-    const blog = { id: Date.now(), title: content.slice(0, 50), content };
+    const blog = { id: Date.now(), title, content }; // Replace with MongoDB save
     res.json({ message: 'Blog published', blog });
   } catch (error) {
     console.error('Publish blog error:', error.stack);
