@@ -1,81 +1,64 @@
- // routes/users.js
 const express = require('express');
+const router = express.Router();
+const jwt = require('jsonwebtoken');
 const multer = require('multer');
 const path = require('path');
-const authMiddleware = require('../middleware/auth');
 const User = require('../models/User');
-const router = express.Router();
+const authMiddleware = require('../middleware/auth');
 
-// Multer setup for avatar uploads
+const UPLOADS_DIR = '/opt/render/project/src/Uploads';
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, '/opt/render/project/src/Uploads'),
-  filename: (req, file, cb) => cb(null, `${Date.now()}-${file.originalname}`)
-});
-const upload = multer({
-  storage,
-  limits: { fileSize: 2 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) cb(null, true);
-    else cb(new Error('Invalid file type'), false);
+  destination: (req, file, cb) => {
+    cb(null, UPLOADS_DIR);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
   }
 });
-
-// Multer error handling middleware
-const handleMulterError = (req, res, next) => {
-  upload.single('avatar')(req, res, (err) => {
-    if (err instanceof multer.MulterError) {
-      console.error('Multer error:', err.message);
-      return res.status(400).json({ error: `Multer error: ${err.message}` });
-    } else if (err) {
-      console.error('Upload error:', err.message);
-      return res.status(400).json({ error: err.message });
-    }
-    next();
-  });
-};
+const upload = multer({ storage });
 
 // Get current user
 router.get('/me', authMiddleware, async (req, res) => {
   try {
-    const user = await User.findById(req.user.id).select('username displayName bio status avatar');
-    if (!user) return res.status(404).json({ error: 'User not found' });
+    const user = await User.findById(req.user.id).select('-password');
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
     res.json(user);
   } catch (error) {
-    console.error('Error fetching user:', error.stack);
-    res.status(500).json({ error: 'Failed to fetch user', details: error.message });
+    console.error('Fetch user error:', error.message);
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
 // Update profile
-router.post('/profile', authMiddleware, handleMulterError, async (req, res) => {
+router.put('/profile', authMiddleware, upload.single('avatar'), async (req, res) => {
   try {
-    const { displayName, bio, status } = req.body;
-    console.log('Profile update request:', { displayName, bio, status, file: req.file });
-    const updateData = { displayName, bio, status };
+    const updateData = {};
+    if (req.body.displayName) updateData.displayName = req.body.displayName;
+    if (req.body.bio) updateData.bio = req.body.bio;
+    if (req.body.status) updateData.status = req.body.status;
     if (req.file) {
       updateData.avatar = `https://mlnf-auth.onrender.com/Uploads/${req.file.filename}`;
       console.log('Avatar uploaded:', updateData.avatar);
     }
-    const user = await User.findByIdAndUpdate(req.user.id, updateData, { new: true });
-    if (!user) {
-      console.log('User not found:', req.user.id);
-      return res.status(404).json({ error: 'User not found' });
-    }
-    res.json({ message: 'Profile updated successfully', user });
+    const user = await User.findByIdAndUpdate(req.user.id, updateData, { new: true }).select('-password');
+    res.json(user);
   } catch (error) {
-    console.error('Profile update error:', error.stack);
-    res.status(500).json({ error: 'Failed to update profile', details: error.message });
+    console.error('Update profile error:', error.message);
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
-// Get all users (for sidebar)
+// Get online users (for active users sidebar)
 router.get('/online', authMiddleware, async (req, res) => {
   try {
-    const users = await User.find({ status: 'Online' }).select('username displayName status avatar');
+    const users = await User.find({ status: 'online' }).select('username displayName avatar status');
     res.json(users);
   } catch (error) {
-    console.error('Error fetching users:', error.stack);
-    res.status(500).json({ error: 'Failed to fetch users', details: error.message });
+    console.error('Fetch online users error:', error.message);
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
