@@ -7,14 +7,22 @@ const User = require('../models/User');
 router.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
-    const user = await User.findOne({ username });
-    if (!user || !(await bcrypt.compare(password, user.password))) {
+    const user = await User.findOne({ username }).catch((err) => {
+      console.error('Error in findOne during login:', err.message);
+      throw err;
+    });
+    if (!user) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    await User.updateOne({ _id: user._id }, { online: true });
+    const token = jwt.sign({ id: user._id, username }, process.env.JWT_SECRET, { expiresIn: '1h' });
     res.json({ token });
   } catch (error) {
-    console.error('Login error:', error.message);
+    console.error('Login error:', error.message, error.stack);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -22,23 +30,37 @@ router.post('/login', async (req, res) => {
 router.post('/signup', async (req, res) => {
   try {
     const { username, password } = req.body;
-    const existingUser = await User.findOne({ username });
+    const existingUser = await User.findOne({ username }).catch((err) => {
+      console.error('Error in findOne during signup:', err.message);
+      throw err;
+    });
     if (existingUser) {
       return res.status(400).json({ error: 'Username taken' });
     }
     const hashedPassword = await bcrypt.hash(password, 10);
-    const user = new User({ username, password: hashedPassword });
+    const user = new User({ username, password: hashedPassword, online: true });
     await user.save();
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    const token = jwt.sign({ id: user._id, username }, process.env.JWT_SECRET, { expiresIn: '1h' });
     res.json({ token });
   } catch (error) {
-    console.error('Signup error:', error.message);
+    console.error('Signup error:', error.message, error.stack);
     res.status(500).json({ error: 'Server error' });
   }
 });
 
-router.post('/logout', (req, res) => {
-  res.json({ message: 'Logout successful' });
+router.post('/logout', async (req, res) => {
+  try {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+    if (token) {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      await User.updateOne({ _id: decoded.id }, { online: false });
+    }
+    res.json({ message: 'Logout successful' });
+  } catch (error) {
+    console.error('Logout error:', error.message);
+    res.status(500).json({ error: 'Server error' });
+  }
 });
 
 module.exports = router;
