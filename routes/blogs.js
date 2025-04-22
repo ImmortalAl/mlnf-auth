@@ -1,31 +1,42 @@
 ﻿const express = require('express');
-const authMiddleware = require('../middleware/auth');
 const router = express.Router();
+const auth = require('../middleware/auth');
+const Blog = require('../models/Blog');
 
-// Fetch user's blogs
-router.get('/my', authMiddleware, async (req, res) => {
-  try {
-    const blogs = [];
-    res.json(blogs);
-  } catch (error) {
-    console.error('Fetch blogs error:', error.message);
-    res.status(500).json({ error: 'Server error' });
-  }
+// Create a blog post
+router.post('/', auth, async (req, res) => {
+    try {
+        console.log('POST /api/blogs - User ID:', req.user.id);
+        console.log('Request body:', req.body);
+        const { title, content } = req.body;
+        if (!title || !content) {
+            return res.status(400).json({ error: 'Title and content are required' });
+        }
+        const blog = new Blog({
+            title,
+            content,
+            author: req.user.id
+        });
+        await blog.save();
+        console.log('Blog created:', blog);
+        res.status(201).json(blog);
+    } catch (error) {
+        console.error('Create blog error:', error);
+        res.status(500).json({ error: `Server error: ${error.message}` });
+    }
 });
 
-// Publish blog
-router.post('/', authMiddleware, async (req, res) => {
-  try {
-    const { title, content } = req.body;
-    if (!title || !content) {
-      return res.status(400).json({ error: 'Title and content required' });
+// Get user's blogs
+router.get('/my', auth, async (req, res) => {
+    try {
+        console.log('GET /api/blogs/my - User ID:', req.user.id);
+        const blogs = await Blog.find({ author: req.user.id }).sort({ createdAt: -1 });
+        console.log('User blogs:', blogs.length);
+        res.json(blogs);
+    } catch (error) {
+        console.error('Get user blogs error:', error);
+        res.status(500).json({ error: `Server error: ${error.message}` });
     }
-    const blog = { id: Date.now(), title, content };
-    res.json({ message: 'Blog published', blog });
-  } catch (error) {
-    console.error('Publish blog error:', error.message);
-    res.status(500).json({ error: 'Server error' });
-  }
 });
 
 module.exports = router;

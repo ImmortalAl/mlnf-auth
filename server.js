@@ -8,6 +8,7 @@ const cloudinary = require('cloudinary').v2;
 const rateLimit = require('express-rate-limit');
 const userRoutes = require('./routes/users');
 const authRoutes = require('./routes/auth');
+const blogRoutes = require('./routes/blogs');
 
 const app = express();
 
@@ -49,7 +50,7 @@ app.use(rateLimit({
 }));
 
 // Ensure uploads folder exists
-const uploadsDir = path.join(__dirname, 'uploads');
+const uploadsDir = path.join(__dirname, 'Uploads');
 if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir);
     console.log('Uploads folder created at:', uploadsDir);
@@ -96,6 +97,8 @@ app.use('/api/users', userRoutes);
 console.log('Mounted /api/users');
 app.use('/api/auth', authRoutes);
 console.log('Mounted /api/auth');
+app.use('/api/blogs', blogRoutes);
+console.log('Mounted /api/blogs');
 
 // Cloudinary upload route
 app.post('/api/upload', upload.single('file'), async (req, res) => {
