@@ -7,47 +7,42 @@ const userSchema = new mongoose.Schema({
     unique: true,
     trim: true,
     minlength: 3,
-    maxlength: 30,
+    maxlength: 20
   },
   password: {
     type: String,
     required: true,
-    minlength: 6,
-  },
-  displayName: {
-    type: String,
-    trim: true,
-    maxlength: 50,
-  },
-  bio: {
-    type: String,
-    trim: true,
-    maxlength: 500,
-  },
-  status: {
-    type: String,
-    trim: true,
-    maxlength: 100,
-  },
-  avatar: {
-    type: String,
-    trim: true,
+    minlength: 6
   },
   seed: {
     type: String,
-    trim: true,
+    required: false,
+    minlength: 8,
+    maxlength: 100
   },
-  online: {
-    type: Boolean,
-    default: false,
+  displayName: {
+    type: String,
+    required: false,
+    maxlength: 50
+  },
+  bio: {
+    type: String,
+    required: false,
+    maxlength: 500
+  },
+  status: {
+    type: String,
+    required: false,
+    maxlength: 100
+  },
+  avatar: {
+    type: String,
+    required: false
   },
   createdAt: {
     type: Date,
-    default: Date.now,
-  },
+    default: Date.now
+  }
 });
-
-// Index for faster queries
-userSchema.index({ username: 1 }, { unique: true });
 
 module.exports = mongoose.model('User', userSchema);
