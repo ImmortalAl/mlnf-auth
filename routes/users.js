@@ -73,13 +73,16 @@ router.get('/:id', auth, async (req, res) => {
 });
 
 // Update user profile
-router.post('/profile', auth, upload.single('avatar'), async (req, res) => {
+router.put('/profile', auth, upload.single('avatar'), async (req, res) => {
   try {
-    console.log('POST /api/users/profile - User ID:', req.user.id);
+    console.log('PUT /api/users/profile - User ID:', req.user.id);
     console.log('Request body:', req.body);
     console.log('File:', req.file);
     const { displayName, bio, status } = req.body;
-    const updateData = { displayName, bio, status };
+    const updateData = {};
+    if (displayName) updateData.displayName = displayName;
+    if (bio) updateData.bio = bio;
+    if (status) updateData.status = status;
     if (req.file) {
       updateData.avatar = req.file.path;
       console.log('Avatar uploaded to Cloudinary:', req.file.path);
@@ -95,7 +98,7 @@ router.post('/profile', auth, upload.single('avatar'), async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
     console.log('Updated user:', user);
-    res.json({ message: 'Profile updated', user });
+    res.json(user);
   } catch (error) {
     console.error('Update profile error:', error);
     res.status(500).json({ error: `Server error: ${error.message}` });
