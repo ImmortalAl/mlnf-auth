@@ -19,9 +19,7 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
     await User.updateOne({ _id: user._id }, { online: true });
-    const payload = { id: user._id, username };
-    console.log('Generating token with payload:', payload);
-    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '24h' });
+    const token = jwt.sign({ id: user._id, username }, process.env.JWT_SECRET, { expiresIn: '1h' });
     res.json({ token });
   } catch (error) {
     console.error('Login error:', error.message, error.stack);
@@ -42,9 +40,7 @@ router.post('/signup', async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = new User({ username, password: hashedPassword, online: true });
     await user.save();
-    const payload = { id: user._id, username };
-    console.log('Generating token with payload:', payload);
-    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '24h' });
+    const token = jwt.sign({ id: user._id, username }, process.env.JWT_SECRET, { expiresIn: '1h' });
     res.json({ token });
   } catch (error) {
     console.error('Signup error:', error.message, error.stack);
