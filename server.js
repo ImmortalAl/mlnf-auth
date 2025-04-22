@@ -1,132 +1,149 @@
 const express = require('express');
 const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
-const multer = require('multer');
-const cloudinary = require('cloudinary').v2;
-const rateLimit = require('express-rate-limit');
-const userRoutes = require('./routes/users');
-const authRoutes = require('./routes/auth');
-const blogRoutes = require('./routes/blogs');
-
 const app = express();
 
-// CORS configuration
-const allowedOrigins = [
-    'https://mlnf.net',
-    'https://dashing-belekoy-7a0095.netlify.app',
-    'https://immortalal.github.io',
-    'http://localhost:3000',
-    'http://localhost:8080',
-    'http://127.0.0.1:3000'
-];
-app.use(cors({
-    origin: (origin, callback) => {
-        if (!origin || allowedOrigins.includes(origin)) {
-            callback(null, true);
-        } else {
-            callback(new Error('Not allowed by CORS'));
-        }
-    },
-    credentials: true
-}));
-
-// Middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// Request logging
-app.use((req, res, next) => {
-    console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
-    next();
-});
-
-// Rate limiting
-app.use(rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // 100 requests per IP
-    message: 'Too many requests from this IP, please try again later.'
-}));
-
-// Ensure uploads folder exists
-const uploadsDir = path.join(__dirname, 'Uploads');
+const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key';
+const uploadsDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) {
-    fs.mkdirSync(uploadsDir);
-    console.log('Uploads folder created at:', uploadsDir);
+    fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
-// Configure Cloudinary
-cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET
+app.use(cors());
+app.use(express.json());
+app.use('/uploads', express.static(uploadsDir));
+
+mongoose.connect(process.env.MONGODB_URI || 'mongodb+srv://<your_mongo_connection_string>', {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+}).then(() => console.log('MongoDB connected'))
+  .catch(err => console.error('MongoDB connection error:', err));
+
+const UserSchema = new mongoose.Schema({
+    username: { type: String, required: true, unique: true },
+    password: { type: String, required: true },
+    seed: { type: String, required: true },
+    avatar: { type: String },
+    status: { type: String },
+    online: { type: Boolean, default: false },
 });
+const User = mongoose.model('User', UserSchema);
 
-// Multer for file uploads
-const upload = multer({ dest: uploadsDir });
+const MessageSchema = new mongoose.Schema({
+    sender: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    recipient: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    content: { type: String, required: true },
+    timestamp: { type: Date, default: Date.now },
+});
+const Message = mongoose.model('Message', MessageSchema);
 
-// MongoDB connection with retry
-const connectDB = async () => {
-    let retries = 5;
-    while (retries) {
-        try {
-            await mongoose.connect(process.env.MONGO_URI, {
-                useNewUrlParser: true,
-                useUnifiedTopology: true
-            });
-            console.log('MongoDB connected');
-            break;
-        } catch (err) {
-            console.error('MongoDB connection error:', err);
-            retries -= 1;
-            if (retries === 0) {
-                console.error('MongoDB connection failed after retries');
-                process.exit(1);
-            }
-            console.log(`Retrying MongoDB connection (${retries} attempts left)...`);
-            await new Promise(res => setTimeout(res, 5000)); // Wait 5s
-        }
-    }
-};
-connectDB();
+function authenticateToken(req, res, next) {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'No token provided' });
 
-// Routes
-console.log('Mounting routes...');
-app.use('/api/users', userRoutes);
-console.log('Mounted /api/users');
-app.use('/api/auth', authRoutes);
-console.log('Mounted /api/auth');
-app.use('/api/blogs', blogRoutes);
-console.log('Mounted /api/blogs');
+    jwt.verify(token, JWT_SECRET, (err, user) => {
+        if (err) return res.status(403).json({ error: 'Invalid token' });
+        req.user = user;
+        next();
+    });
+}
 
-// Cloudinary upload route
-app.post('/api/upload', upload.single('file'), async (req, res) => {
+app.post('/api/auth/register', async (req, res) => {
+    const { username, password, seed, avatar, status } = req.body;
     try {
-        if (!req.file) {
-            return res.status(400).json({ error: 'No file uploaded' });
-        }
-        const result = await cloudinary.uploader.upload(req.file.path, {
-            folder: 'mlnf_uploads',
-            overwrite: false,
-            invalidate: true
-        });
-        fs.unlinkSync(req.file.path); // Clean up local file
-        res.json({ url: result.secure_url });
-    } catch (err) {
-        console.error('Upload error:', err);
-        res.status(500).json({ error: 'Upload failed' });
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const user = new User({ username, password: hashedPassword, seed, avatar, status });
+        await user.save();
+        const token = jwt.sign({ id: user._id, username }, JWT_SECRET, { expiresIn: '1h' });
+        res.status(201).json({ token });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
 });
 
-// Global error handling
-app.use((err, req, res, next) => {
-    console.error('Server error:', err.stack);
-    res.status(500).json({ error: 'Internal server error' });
+app.post('/api/auth/login', async (req, res) => {
+    const { username, password } = req.body;
+    try {
+        const user = await User.findOne({ username });
+        if (!user || !(await bcrypt.compare(password, user.password))) {
+            return res.status(401).json({ error: 'Invalid credentials' });
+        }
+        await User.updateOne({ _id: user._id }, { online: true });
+        const token = jwt.sign({ id: user._id, username }, JWT_SECRET, { expiresIn: '1h' });
+        res.json({ token });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 });
 
-// Start server
-const port = process.env.PORT || 3001;
-app.listen(port, () => {
-    console.log(`Server running on port ${port}`);
+app.get('/api/users/me', authenticateToken, async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id).select('-password -seed');
+        if (!user) return res.status(404).json({ error: 'User not found' });
+        res.json(user);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 });
+
+app.patch('/api/users/me', authenticateToken, async (req, res) => {
+    try {
+        const updates = req.body;
+        const user = await User.findByIdAndUpdate(req.user.id, updates, { new: true }).select('-password -seed');
+        res.json(user);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.get('/api/users/online', authenticateToken, async (req, res) => {
+    try {
+        const users = await User.find({ online: true, _id: { $ne: req.user.id } }).select('username avatar status');
+        res.json(users);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/api/messages/send', authenticateToken, async (req, res) => {
+    const { recipientId, content } = req.body;
+    try {
+        const recipient = await User.findById(recipientId);
+        if (!recipient) return res.status(404).json({ error: 'Recipient not found' });
+        const message = new Message({
+            sender: req.user.id,
+            recipient: recipientId,
+            content,
+        });
+        await message.save();
+        res.status(201).json({ message: 'Message sent' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.get('/api/messages/history/:recipientId', authenticateToken, async (req, res) => {
+    const { recipientId } = req.params;
+    try {
+        const messages = await Message.find({
+            $or: [
+                { sender: req.user.id, recipient: recipientId },
+                { sender: recipientId, recipient: req.user.id },
+            ],
+        })
+            .populate('sender', 'username avatar')
+            .populate('recipient', 'username avatar')
+            .sort({ timestamp: 1 });
+        res.json(messages);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
