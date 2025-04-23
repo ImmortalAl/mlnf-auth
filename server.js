@@ -1,11 +1,8 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
-const path = require('path');
-const fs = require('fs');
-const jwt = require('jsonwebtoken');
 const authRoutes = require('./routes/auth');
-const User = require('./models/User');
+const userRoutes = require('./routes/users');
 require('dotenv').config();
 
 const app = express();
@@ -23,14 +20,13 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: (origin, callback) => {
-      console.log('CORS Origin:', origin);
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, origin || '*');
       } else {
         callback(new Error('CORS policy violation'));
       }
     },
-    methods: ['GET', 'POST', 'PATCH', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true
   })
@@ -40,14 +36,6 @@ app.options('*', cors());
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// Ensure uploads folder exists
-const uploadsDir = path.join(__dirname, 'Uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(UploadsDir, { recursive: true });
-  console.log('Uploads folder created at:', uploadsDir);
-}
-app.use('/uploads', express.static(uploadsDir));
 
 // MongoDB connection with retry logic
 const connectDB = async () => {
@@ -66,7 +54,7 @@ const connectDB = async () => {
       console.log('MongoDB connected successfully');
       break;
     } catch (err) {
-      console.error('MongoDB connection error:', err.message, err.stack);
+      console.error('MongoDB connection error:', err.message);
       retries -= 1;
       console.log(`Retries left: ${retries}`);
       if (retries === 0) {
@@ -81,7 +69,7 @@ connectDB();
 
 // MongoDB connection events
 mongoose.connection.on('error', (err) => {
-  console.error('MongoDB connection error:', err.message, err.stack);
+  console.error('MongoDB connection error:', err.message);
 });
 mongoose.connection.on('disconnected', () => {
   console.warn('MongoDB disconnected. Attempting to reconnect...');
@@ -90,51 +78,7 @@ mongoose.connection.on('disconnected', () => {
 
 // Routes
 app.use('/api/auth', authRoutes);
-
-app.get('/api/users/me', authenticateToken, async (req, res) => {
-  try {
-    if (!mongoose.Types.ObjectId.isValid(req.user.id)) {
-      console.error('Invalid user ID:', req.user.id);
-      return res.status(400).json({ error: 'Invalid user ID' });
-    }
-    const user = await User.findById(req.user.id).select('-password -seed');
-    if (!user) {
-      console.warn('User not found for ID:', req.user.id);
-      return res.status(404).json({ error: 'User not found' });
-    }
-    res.json(user);
-  } catch (error) {
-    console.error('Get user error:', {
-      message: error.message,
-      stack: error.stack,
-      userId: req.user.id
-    });
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-app.patch('/api/users/me', authenticateToken, async (req, res) => {
-  try {
-    if (!mongoose.Types.ObjectId.isValid(req.user.id)) {
-      console.error('Invalid user ID:', req.user.id);
-      return res.status(400).json({ error: 'Invalid user ID' });
-    }
-    const updates = req.body;
-    const user = await User.findByIdAndUpdate(req.user.id, updates, { new: true }).select('-password -seed');
-    if (!user) {
-      console.warn('User not found for ID:', req.user.id);
-      return res.status(404).json({ error: 'User not found' });
-    }
-    res.json(user);
-  } catch (error) {
-    console.error('Update user error:', {
-      message: error.message,
-      stack: error.stack,
-      userId: req.user.id
-    });
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
+app.use('/api/users', userRoutes);
 
 // Health check endpoint
 app.get('/health', async (req, res) => {
@@ -146,7 +90,7 @@ app.get('/health', async (req, res) => {
       res.json({ status: 'ok', mongodb: 'disconnected' });
     }
   } catch (err) {
-    console.error('Health check error:', err.message, err.stack);
+    console.error('Health check error:', err.message);
     res.status(500).json({ status: 'error', mongodb: 'disconnected', error: err.message });
   }
 });
@@ -169,27 +113,3 @@ const port = process.env.PORT || 3001;
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
 });
-
-// Authentication middleware
-function authenticateToken(req, res, next) {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-  if (!token) {
-    console.warn('No token provided for request:', req.path);
-    return res.status(401).json({ error: 'No token provided' });
-  }
-
-  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-    if (err) {
-      console.error('JWT verification error:', {
-        message: err.message,
-        stack: err.stack,
-        token: token.substring(0, 10) + '...'
-      });
-      return res.status(403).json({ error: 'Invalid token' });
-    }
-    console.log('JWT verified, user:', user);
-    req.user = user;
-    next();
-  });
-}

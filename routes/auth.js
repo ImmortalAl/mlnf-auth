@@ -1,8 +1,10 @@
-﻿const express = require('express');
+﻿```javascript
+const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const router = express.Router();
 const User = require('../models/User');
+const auth = require('../middleware/auth');
 
 router.post('/login', async (req, res) => {
   try {
@@ -20,14 +22,14 @@ router.post('/login', async (req, res) => {
       console.log('Login failed: Incorrect password for username:', username);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
-    const updateResult = await User.updateOne(
-      { _id: user._id },
-      { online: true }
-    );
-    if (updateResult.modifiedCount === 0) {
+    const updatedUser = await User.findByIdAndUpdate(
+      user._id,
+      { online: true },
+      { new: true }
+    ).select('-password -seed');
+    if (!updatedUser) {
       console.warn('Failed to set online status for user:', username);
     }
-    const updatedUser = await User.findById(user._id).select('-password -seed');
     const token = jwt.sign({ id: user._id, username }, process.env.JWT_SECRET, { expiresIn: '1h' });
     console.log('Login successful for username:', username, 'Online:', updatedUser.online);
     res.json({ token, user: updatedUser });
@@ -53,32 +55,36 @@ router.post('/signup', async (req, res) => {
     await user.save();
     const token = jwt.sign({ id: user._id, username }, process.env.JWT_SECRET, { expiresIn: '1h' });
     console.log('Signup successful for username:', username);
-    res.json({ token, user: user.toObject({ getters: true, versionKey: false, transform: (doc, ret) => {
-      delete ret.password;
-      delete ret.seed;
-      return ret;
-    } }) });
+    res.json({
+      token,
+      user: user.toObject({
+        getters: true,
+        versionKey: false,
+        transform: (doc, ret) => {
+          delete ret.password;
+          delete ret.seed;
+          return ret;
+        }
+      })
+    });
   } catch (error) {
     console.error('Signup error:', error.message, error.stack);
     res.status(500).json({ error: 'Server error' });
   }
 });
 
-router.post('/logout', async (req, res) => {
+router.post('/logout', auth, async (req, res) => {
   try {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
-    if (token) {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      const updateResult = await User.updateOne(
-        { _id: decoded.id },
-        { online: false }
-      );
-      if (updateResult.modifiedCount === 0) {
-        console.warn('Failed to set offline status for user ID:', decoded.id);
-      }
-      console.log('Logout successful for user ID:', decoded.id);
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user.id,
+      { online: false },
+      { new: true }
+    );
+    if (!updatedUser) {
+      console.warn('Failed to set offline status for user ID:', req.user.id);
+      return res.status(404).json({ error: 'User not found' });
     }
+    console.log('Logout successful for user ID:', req.user.id);
     res.json({ message: 'Logout successful' });
   } catch (error) {
     console.error('Logout error:', error.message);
@@ -87,3 +93,4 @@ router.post('/logout', async (req, res) => {
 });
 
 module.exports = router;
+```
