@@ -31,7 +31,7 @@ const upload = multer({
 router.get('/me', auth, async (req, res) => {
   try {
     console.log('GET /api/users/me - User ID:', req.user.id);
-    const user = await User.findById(req.user.id).select('-password');
+    const user = await User.findById(req.user.id).select('-password -seed');
     if (!user) {
       console.log('User not found for ID:', req.user.id);
       return res.status(404).json({ error: 'User not found' });
@@ -44,14 +44,14 @@ router.get('/me', auth, async (req, res) => {
   }
 });
 
-// Get all users
+// Get all online users
 router.get('/', auth, async (req, res) => {
   try {
-    const users = await User.find().select('-password');
-    console.log('GET /api/users - Users:', users.length);
+    const users = await User.find({ online: true }).select('-password -seed');
+    console.log('GET /api/users - Online users:', users.length);
     res.json(users);
   } catch (error) {
-    console.error('Get users error:', error);
+    console.error('Get online users error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -60,7 +60,7 @@ router.get('/', auth, async (req, res) => {
 router.get('/:id', auth, async (req, res) => {
   try {
     console.log('GET /api/users/:id - ID:', req.params.id);
-    const user = await User.findById(req.params.id).select('-password');
+    const user = await User.findById(req.params.id).select('-password -seed');
     if (!user) {
       console.log('User not found for ID:', req.params.id);
       return res.status(404).json({ error: 'User not found' });
@@ -92,7 +92,7 @@ router.put('/profile', auth, upload.single('avatar'), async (req, res) => {
       req.user.id,
       { $set: updateData },
       { new: true, runValidators: true }
-    ).select('-password');
+    ).select('-password -seed');
     if (!user) {
       console.log('User not found for ID:', req.user.id);
       return res.status(404).json({ error: 'User not found' });

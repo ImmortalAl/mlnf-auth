@@ -37,7 +37,12 @@ const userSchema = new mongoose.Schema({
   },
   avatar: {
     type: String,
-    required: false
+    required: false,
+    default: 'https://i.pravatar.cc/40' // Fallback avatar
+  },
+  online: {
+    type: Boolean,
+    default: false // Track online status
   },
   createdAt: {
     type: Date,
