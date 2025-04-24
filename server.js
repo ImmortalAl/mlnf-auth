@@ -1,51 +1,56 @@
-﻿const express = require('express');
+﻿constBlogpostconst express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
-const path = require('path');
+const morgan = require('morgan');
 
-// Load environment variables
 dotenv.config();
 
 const app = express();
 
+// CORS configuration
+const corsOptions = {
+    origin: ['https://mlnf.net', 'https://dashing-belekoy-7a0095.netlify.app', 'http://localhost:3000'],
+    methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: false,
+    optionsSuccessStatus: 200
+};
+
 // Middleware
-app.use(cors({
-    origin: ['https://mlnf.net', 'https://dashing-belekoy-7a0095.netlify.app', 'https://immortalal.github.io'],
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    credentials: true
-}));
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
+app.use(morgan('dev')); // Request logging
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Debug CORS headers
+app.use((req, res, next) => {
+    console.log(`Request: ${req.method} ${req.url} from ${req.get('Origin') || 'unknown'}`);
+    res.on('finish', () => {
+        console.log(`Response: ${req.method} ${req.url} - Status: ${res.statusCode}`);
+    });
+    next();
+});
 
 // Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/blogs', require('./routes/blogs'));
 
+// Health check
+app.get('/health', (req, res) => {
+    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
 // MongoDB connection
-const connectDB = async () => {
-    try {
-        await mongoose.connect(process.env.MONGO_URI, {
-            useNewUrlParser: true,
-            useUnifiedTopology: true,
-            serverSelectionTimeoutMS: 30000
-        });
-        console.log('MongoDB connected successfully');
-    } catch (error) {
-        console.error('MongoDB connection error:', error.message);
-        process.exit(1);
-    }
-};
-connectDB();
-
-// Serve static files (optional, if needed for uploads)
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
-// Error handling middleware
-app.use((err, req, res, next) => {
-    console.error('Server error:', err.stack);
-    res.status(500).json({ error: 'Internal server error' });
+mongoose.connect(process.env.MONGO_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true
+}).then(() => {
+    console.log('MongoDB connected successfully');
+}).catch(err => {
+    console.error('MongoDB connection error:', err);
 });
 
 // Start server
