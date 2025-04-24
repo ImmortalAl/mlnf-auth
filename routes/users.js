@@ -50,7 +50,6 @@ router.patch('/me', auth, async (req, res) => {
         }
 
         if (avatar) {
-            // Basic URL validation
             try {
                 new URL(avatar);
             } catch {
