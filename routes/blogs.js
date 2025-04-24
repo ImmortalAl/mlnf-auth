@@ -26,11 +26,28 @@ router.post('/', auth, async (req, res) => {
     }
 });
 
+// Get all blog posts
+router.get('/', async (req, res) => {
+    try {
+        console.log('GET /api/blogs - Fetching all blogs');
+        const blogs = await Blog.find()
+            .populate('author', 'username displayName avatar')
+            .sort({ createdAt: -1 });
+        console.log('Blogs fetched:', blogs.length);
+        res.json(blogs);
+    } catch (error) {
+        console.error('Get all blogs error:', error);
+        res.status(500).json({ error: `Server error: ${error.message}` });
+    }
+});
+
 // Get user's blogs
 router.get('/my', auth, async (req, res) => {
     try {
         console.log('GET /api/blogs/my - User ID:', req.user.id);
-        const blogs = await Blog.find({ author: req.user.id }).sort({ createdAt: -1 });
+        const blogs = await Blog.find({ author: req.user.id })
+            .populate('author', 'username displayName avatar')
+            .sort({ createdAt: -1 });
         console.log('User blogs:', blogs.length);
         res.json(blogs);
     } catch (error) {
