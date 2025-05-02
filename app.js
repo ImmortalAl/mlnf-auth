@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const authRoutes = require('./routes/auth');
-const usersRoutes = require('./routes/users'); // Assumed to exist for /users/me
+const usersRoutes = require('./routes/users');
 const threadsRoutes = require('./routes/threads');
 const moderationRoutes = require('./routes/moderation');
 
@@ -36,6 +36,11 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/threads', threadsRoutes);
 app.use('/api/moderation', moderationRoutes);
+
+// Health Check Endpoint
+app.get('/health', (req, res) => {
+    res.status(200).json({ status: 'OK', uptime: process.uptime() });
+});
 
 // Error Handling Middleware
 app.use((err, req, res, next) => {
