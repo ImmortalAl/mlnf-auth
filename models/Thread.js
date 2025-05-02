@@ -19,6 +19,16 @@ const threadSchema = new mongoose.Schema({
         ref: 'User',
         required: true
     },
+    category: {
+        type: String,
+        required: true,
+        enum: ['Ideas', 'Debates', 'Trades', 'Events', 'Governance'],
+        default: 'Ideas'
+    },
+    tags: {
+        type: [String],
+        default: []
+    },
     createdAt: {
         type: Date,
         default: Date.now

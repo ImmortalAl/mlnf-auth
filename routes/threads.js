@@ -6,14 +6,16 @@ const auth = require('../middleware/auth');
 // Create a new thread
 router.post('/', auth, async (req, res) => {
     try {
-        const { title, content } = req.body;
-        if (!title || !content) {
-            console.log(`Missing title or content from ${req.ip}`);
-            return res.status(400).json({ error: 'Title and content are required' });
+        const { title, content, category, tags } = req.body;
+        if (!title || !content || !category) {
+            console.log(`Missing title, content, or category from ${req.ip}`);
+            return res.status(400).json({ error: 'Title, content, and category are required' });
         }
         const thread = new Thread({
             title,
             content,
+            category,
+            tags: tags || [],
             author: req.user.id,
             createdAt: new Date(),
             updatedAt: new Date(),
@@ -32,20 +34,29 @@ router.post('/', auth, async (req, res) => {
 // Get all threads
 router.get('/', async (req, res) => {
     try {
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 10;
-        const skip = (page - 1) * limit;
-        const threads = await Thread.find()
+        const { page = 1, limit = 10, category, q } = req.query;
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+        const query = {};
+        if (category && category !== 'all') {
+            query.category = category;
+        }
+        if (q) {
+            query.$or = [
+                { title: { $regex: q, $options: 'i' } },
+                { content: { $regex: q, $options: 'i' } }
+            ];
+        }
+        const threads = await Thread.find(query)
             .sort({ createdAt: -1 })
             .skip(skip)
-            .limit(limit)
+            .limit(parseInt(limit))
             .populate('author', 'username displayName avatar');
-        const total = await Thread.countDocuments();
+        const total = await Thread.countDocuments(query);
         console.log(`Fetched ${threads.length} threads for page ${page} from ${req.ip}`);
         res.json({
             threads,
             pagination: {
-                page,
+                page: parseInt(page),
                 pages: Math.ceil(total / limit),
                 total
             }
