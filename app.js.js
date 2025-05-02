@@ -3,6 +3,10 @@ const express = require('express');
 const mongoose = require('mongoose');
 const bodyParser = require('body-parser');
 const authRoutes = require('./routes/auth');
+const threadsRouter = require('./routes/threads');
+const moderationRouter = require('./routes/moderation');
+app.use('/api/threads', threadsRouter);
+app.use('/api/moderation', moderationRouter);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
