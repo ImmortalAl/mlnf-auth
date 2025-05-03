@@ -1,96 +1,59 @@
-﻿const express = require('express');
-const mongoose = require('mongoose');
+﻿// server.js (backend: mlnf-auth)
+const express = require('express');
 const cors = require('cors');
-const dotenv = require('dotenv');
+const mongoose = require('mongoose');
 const morgan = require('morgan');
-
-dotenv.config();
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
+// ... other imports
 
 const app = express();
 
+// Define allowed origins
+const allowedOrigins = [
+  'https://dashing-belekoy-7a0095.netlify.app',
+  'https://immortalal.github.io',
+  'https://mlnf.net',
+  'http://localhost:3000' // For local development
+];
+
 // CORS configuration
-const corsOptions = {
-    origin: ['https://mlnf.net', 'https://dashing-belekoy-7a0095.netlify.app', 'http://localhost:3000'],
-    methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: false,
-    optionsSuccessStatus: 200
-};
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (e.g., mobile apps or curl)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'], // Explicitly allow PATCH and other methods
+  allowedHeaders: ['Content-Type', 'Authorization'], // Allow necessary headers
+  credentials: true, // If cookies or auth headers are used
+  optionsSuccessStatus: 200 // For legacy browsers
+}));
 
-app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
-app.use(morgan('dev'));
+// Middleware
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(morgan('dev'));
 
-app.use((req, res, next) => {
-    console.log(`Request: ${req.method} ${req.url} from ${req.get('Origin') || 'unknown'} with headers: ${JSON.stringify(req.headers)}`);
-    res.on('finish', () => {
-        console.log(`Response: ${req.method} ${req.url} - Status: ${res.statusCode}, Headers: ${JSON.stringify(res.getHeaders())}`);
-    });
-    next();
+// Routes
+// ... your existing routes (e.g., /api/users, /api/auth, /api/blogs)
+
+// Handle preflight requests explicitly (optional, as cors middleware should handle this)
+app.options('*', cors());
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ error: 'Something went wrong!' });
 });
 
-// Explicit OPTIONS handling for /api/users
-app.options('/api/users/*', cors(corsOptions), (req, res) => {
-    res.status(200).end();
-});
-
-// Test CORS endpoint
-app.get('/test-cors', cors(corsOptions), (req, res) => {
-    res.json({
-        message: 'CORS test endpoint',
-        headers: {
-            'Access-Control-Allow-Origin': res.get('Access-Control-Allow-Origin'),
-            'Access-Control-Allow-Methods': res.get('Access-Control-Allow-Methods'),
-            'Access-Control-Allow-Headers': res.get('Access-Control-Allow-Headers')
-        }
-    });
-});
-
-// Mount routes
-try {
-    console.log('Mounting /api/auth routes');
-    app.use('/api/auth', require('./routes/auth'));
-} catch (error) {
-    console.error('Error mounting /api/auth routes:', error);
-}
-
-try {
-    console.log('Mounting /api/users routes');
-    app.use('/api/users', require('./routes/users'));
-} catch (error) {
-    console.error('Error mounting /api/users routes:', error);
-}
-
-try {
-    console.log('Mounting /api/blogs routes');
-    app.use('/api/blogs', require('./routes/blogs'));
-} catch (error) {
-    console.error('Error mounting /api/blogs routes:', error);
-}
-
-// Health check
-app.get('/health', (req, res) => {
-    res.json({ status: 'ok', timestamp: new Date().toISOString() });
-});
-
-// Catch-all for 404
-app.use((req, res) => {
-    console.log(`Route not found: ${req.method} ${req.url}`);
-    res.status(404).json({ error: `Route not found: ${req.method} ${req.url}` });
-});
-
-mongoose.connect(process.env.MONGO_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true
-}).then(() => {
-    console.log('MongoDB connected successfully');
-}).catch(err => {
-    console.error('MongoDB connection error:', err);
-});
-
-const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-});
+// Start server
+const PORT = process.env.PORT || 5000;
+mongoose.connect(process.env.MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+  .then(() => {
+    app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+  })
+  .catch(err => console.error('MongoDB connection error:', err));
