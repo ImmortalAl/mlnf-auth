@@ -3,6 +3,21 @@ const router = express.Router();
 const User = require('../models/User');
 const auth = require('../middleware/auth');
 
+// Get online users
+router.get('/online', auth, async (req, res) => {
+    try {
+        const users = await User.find({ online: true })
+            .select('username displayName avatar')
+            .sort({ username: 1 });
+        console.log(`Fetched ${users.length} online users for ${req.user.id} from ${req.ip}`);
+        res.json(users); // Return array directly
+    } catch (error) {
+        console.error(`Error fetching online users from ${req.ip}:`, error.message, error.stack);
+        res.status(500).json({ error: 'Failed to fetch online users' });
+    }
+});
+
+// Get all users with pagination
 router.get('/', auth, async (req, res) => {
     const { page = 1, limit = 12, q = '' } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
@@ -41,6 +56,7 @@ router.get('/', auth, async (req, res) => {
     }
 });
 
+// Get current user
 router.get('/me', auth, async (req, res) => {
     try {
         const user = await User.findById(req.user.id).select('-password -seed');
@@ -56,6 +72,7 @@ router.get('/me', auth, async (req, res) => {
     }
 });
 
+// Get user by username
 router.get('/:username', auth, async (req, res) => {
     try {
         const user = await User.findOne({ username: req.params.username })
@@ -72,6 +89,7 @@ router.get('/:username', auth, async (req, res) => {
     }
 });
 
+// Update current user
 router.patch('/me', auth, async (req, res) => {
     const { username, displayName, avatar, status } = req.body;
     const updates = { username, displayName, avatar, status };
