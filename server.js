@@ -48,12 +48,37 @@ app.get('/test-cors', cors(corsOptions), (req, res) => {
     });
 });
 
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/users', require('./routes/users'));
-app.use('/api/blogs', require('./routes/blogs'));
+// Mount routes
+try {
+    console.log('Mounting /api/auth routes');
+    app.use('/api/auth', require('./routes/auth'));
+} catch (error) {
+    console.error('Error mounting /api/auth routes:', error);
+}
 
+try {
+    console.log('Mounting /api/users routes');
+    app.use('/api/users', require('./routes/users'));
+} catch (error) {
+    console.error('Error mounting /api/users routes:', error);
+}
+
+try {
+    console.log('Mounting /api/blogs routes');
+    app.use('/api/blogs', require('./routes/blogs'));
+} catch (error) {
+    console.error('Error mounting /api/blogs routes:', error);
+}
+
+// Health check
 app.get('/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Catch-all for 404
+app.use((req, res) => {
+    console.log(`Route not found: ${req.method} ${req.url}`);
+    res.status(404).json({ error: `Route not found: ${req.method} ${req.url}` });
 });
 
 mongoose.connect(process.env.MONGO_URI, {

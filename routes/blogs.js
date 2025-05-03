@@ -1,8 +1,10 @@
 ﻿const express = require('express');
 const router = express.Router();
 const Blog = require('../models/Blog');
-const User = require('../models/User');
 const auth = require('../middleware/auth');
+
+// Test endpoint to verify router mounting
+router.get('/test', (req, res) => res.json({ message: 'Blogs router is working' }));
 
 // Create a new blog post
 router.post('/', auth, async (req, res) => {
