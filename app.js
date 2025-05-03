@@ -7,6 +7,7 @@ const usersRoutes = require('./routes/users');
 const threadsRoutes = require('./routes/threads');
 const moderationRoutes = require('./routes/moderation');
 const blogRoutes = require('./routes/blogRoutes');
+const profileRoutes = require('./routes/profileRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -51,6 +52,7 @@ mongoose.connect(mongoUri, {
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/blogs', blogRoutes);
+app.use('/api/profile', profileRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/threads', threadsRoutes);
 app.use('/api/moderation', moderationRoutes);
