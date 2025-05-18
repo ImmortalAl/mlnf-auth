@@ -52,7 +52,8 @@ router.post('/signup', async (req, res) => {
             return res.status(400).json({ error: 'Username taken' });
         }
         const hashedPassword = await bcrypt.hash(password, 10);
-        const user = new User({ username, password: hashedPassword, online: true });
+        const email = `${username}@mlnf.net`;
+        const user = new User({ username, email, password: hashedPassword, online: true });
         await user.save();
         const token = await jwt.sign({ id: user._id, username }, process.env.JWT_SECRET, { expiresIn: '1h' });
         const safeUser = user.toObject({
