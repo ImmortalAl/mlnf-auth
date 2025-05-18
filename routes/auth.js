@@ -30,7 +30,7 @@ router.post('/login', async (req, res) => {
         if (!updatedUser) {
             console.warn(`Failed to set online status for user: ${username} from ${req.ip}`);
         }
-        const token = await jwt.sign({ id: user._id, username }, process.env.JWT_SECRET, { expiresIn: '1h' });
+        const token = await jwt.sign({ id: user._id, username }, process.env.JWT_SECRET, { expiresIn: '30d' });
         console.log(`Login successful for username: ${username}, Online: ${updatedUser?.online}, IP: ${req.ip}`);
         res.json({ token, user: updatedUser });
     } catch (error) {
