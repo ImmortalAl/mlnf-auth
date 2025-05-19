@@ -21,17 +21,19 @@ app.use(cors({
         'http://localhost:3000' // For local testing
     ],
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     preflightContinue: false,
     optionsSuccessStatus: 204
 }));
 
+/* // REMOVING/COMMENTING OUT this explicit OPTIONS handler for now
 // Explicitly handle OPTIONS pre-flight requests
 app.options('*', cors(), (req, res) => {
     console.log(`Received OPTIONS request from ${req.ip} for ${req.originalUrl}`);
     res.status(204).send();
 });
+*/
 
 // Middleware
 app.use(bodyParser.json());
