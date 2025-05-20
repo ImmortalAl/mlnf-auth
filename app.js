@@ -8,6 +8,8 @@ const threadsRoutes = require('./routes/threads');
 const moderationRoutes = require('./routes/moderation');
 const blogRoutes = require('./routes/blogRoutes');
 const profileRoutes = require('./routes/profileRoutes');
+const http = require('http');
+const WebSocketManager = require('./websocket');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -74,8 +76,13 @@ app.use((err, req, res, next) => {
     res.status(500).json({ error: 'Internal server error' });
 });
 
+// Create HTTP server
+const server = http.createServer(app);
+// Initialize WebSocket Manager
+const wsManager = new WebSocketManager(server);
+
 // Start Server
-app.listen(PORT, () => {
+server.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
 
