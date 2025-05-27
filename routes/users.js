@@ -91,8 +91,8 @@ router.get('/:username', auth, async (req, res) => {
 
 // Update current user
 router.patch('/me', auth, async (req, res) => {
-    const { username, displayName, avatar, status } = req.body;
-    const updates = { username, displayName, avatar, status };
+    const { username, displayName, avatar, status, bio } = req.body;
+    const updates = { username, displayName, avatar, status, bio };
     Object.keys(updates).forEach(key => updates[key] === undefined && delete updates[key]);
 
     try {
@@ -119,10 +119,17 @@ router.patch('/me', auth, async (req, res) => {
             }
         }
 
+        if (bio && bio.length > 500) {
+            console.log(`Bio too long: ${bio.length} characters from ${req.ip}`);
+            return res.status(400).json({ error: 'Bio must be less than 500 characters' });
+        }
+
         Object.assign(user, updates);
         await user.save();
         const updatedUser = await User.findById(req.user.id).select('-password -seed');
         console.log(`User ${req.user.id} updated from ${req.ip}:`, updates);
+        console.log(`Bio field in updates: ${updates.bio || 'undefined'}`);
+        console.log(`Bio field in saved user: ${updatedUser.bio || 'undefined'}`);
         res.json(updatedUser);
     } catch (error) {
         console.error(`Error updating user ${req.user.id} from ${req.ip}:`, error.message, error.stack);
