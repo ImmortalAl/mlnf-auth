@@ -7,7 +7,7 @@ const auth = require('../middleware/auth');
 router.get('/online', auth, async (req, res) => {
     try {
         const users = await User.find({ online: true })
-            .select('username displayName avatar')
+            .select('username displayName avatar status')
             .sort({ username: 1 });
         console.log(`Fetched ${users.length} online users for ${req.user.id} from ${req.ip}`);
         res.json(users); // Return array directly
