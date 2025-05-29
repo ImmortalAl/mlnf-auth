@@ -40,9 +40,12 @@ router.get('/online', auth, async (req, res) => {
 router.get('/', auth, async (req, res) => {
     const { page = 1, limit = 12, q = '' } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
+    const ip = req.ip;
+    const requesterId = req.user?.id || 'UnknownUser';
+    console.log(`[USERS_ALL] Request for page ${page}, limit ${limit}, query '${q}' from UserID: ${requesterId}, IP: ${ip}`);
     
     try {
-        const query = q 
+        const queryOptions = q 
             ? { 
                 $or: [
                     { username: { $regex: q, $options: 'i' } },
@@ -51,15 +54,20 @@ router.get('/', auth, async (req, res) => {
             }
             : {};
         
-        const users = await User.find(query)
-            .select('username displayName avatar status bio createdAt')
+        const users = await User.find(queryOptions)
+            .select('username displayName avatar status bio createdAt online lastLogin')
             .skip(skip)
             .limit(parseInt(limit))
             .sort({ createdAt: -1 });
         
-        const total = await User.countDocuments(query);
+        const total = await User.countDocuments(queryOptions);
         
-        console.log(`Fetched ${users.length} users (page ${page}, limit ${limit}, query: ${q}) for ${req.user.id} from ${req.ip}`);
+        console.log(`[USERS_ALL] Fetched ${users.length} users. Total matching query: ${total}.`);
+        // Optionally log details of fetched users if needed for debugging this specific endpoint
+        // users.forEach(u => {
+        //     console.log(`  - User: ${u.username}, Online: ${u.online}, Status: '${u.status || 'N/A'}', Created: ${u.createdAt}`);
+        // });
+
         res.json({
             users,
             pagination: {
@@ -70,7 +78,7 @@ router.get('/', auth, async (req, res) => {
             }
         });
     } catch (error) {
-        console.error(`Error fetching users from ${req.ip}:`, error.message, error.stack);
+        console.error(`[USERS_ALL ERROR] For UserID: ${requesterId}, IP: ${ip}:`, error.message, error.stack);
         res.status(500).json({ error: 'Failed to fetch users' });
     }
 });
