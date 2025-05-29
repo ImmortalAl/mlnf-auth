@@ -5,14 +5,33 @@ const auth = require('../middleware/auth');
 
 // Get online users
 router.get('/online', auth, async (req, res) => {
+    const ip = req.ip;
+    const requesterId = req.user?.id || 'UnknownUser';
+    console.log(`[USERS_ONLINE] Request received from UserID: ${requesterId}, IP: ${ip}`);
     try {
         const users = await User.find({ online: true })
-            .select('username displayName avatar status')
+            .select('username displayName avatar status online lastLogin')
             .sort({ username: 1 });
-        console.log(`Fetched ${users.length} online users for ${req.user.id} from ${req.ip}`);
-        res.json(users); // Return array directly
+        
+        console.log(`[USERS_ONLINE] Found ${users.length} online users. Data being sent:`);
+        users.forEach(u => {
+            console.log(`  - User: ${u.username}, Online: ${u.online}, Status: '${u.status || 'N/A'}', LastLogin: ${u.lastLogin}`);
+        });
+        
+        const requestingUserInfo = users.find(u => u._id.toString() === requesterId);
+        if (requestingUserInfo) {
+            console.log(`[USERS_ONLINE] Requesting user ${requestingUserInfo.username} (ID: ${requesterId}) IS in the online list. Online: ${requestingUserInfo.online}, Status: '${requestingUserInfo.status || 'N/A'}'`);
+        } else {
+            console.log(`[USERS_ONLINE] Requesting user ID: ${requesterId} IS NOT in the fetched online list.`);
+            const currentUserFromDB = await User.findById(requesterId).select('username online status lastLogin');
+            if (currentUserFromDB) {
+                console.log(`[USERS_ONLINE] Current DB state for ${currentUserFromDB.username} (ID: ${requesterId}): Online: ${currentUserFromDB.online}, Status: '${currentUserFromDB.status || 'N/A'}', LastLogin: ${currentUserFromDB.lastLogin}`);
+            }
+        }
+
+        res.json(users);
     } catch (error) {
-        console.error(`Error fetching online users from ${req.ip}:`, error.message, error.stack);
+        console.error(`[USERS_ONLINE ERROR] For UserID: ${requesterId}, IP: ${ip}:`, error.message, error.stack);
         res.status(500).json({ error: 'Failed to fetch online users' });
     }
 });

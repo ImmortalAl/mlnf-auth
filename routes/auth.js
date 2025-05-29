@@ -7,34 +7,44 @@ const auth = require('../middleware/auth');
 
 router.post('/login', async (req, res) => {
     const { username, password } = req.body;
+    const ip = req.ip;
     try {
         if (!username || !password) {
-            console.log(`Login failed: Missing credentials from ${req.ip}`);
+            console.log(`[LOGIN ATTEMPT] Failed: Missing credentials from ${ip}`);
             return res.status(400).json({ error: 'Username and password are required' });
         }
         const user = await User.findOne({ username });
         if (!user) {
-            console.log(`Login failed: User not found for username: ${username} from ${req.ip}`);
+            console.log(`[LOGIN ATTEMPT] Failed: User not found for username: ${username} from ${ip}`);
             return res.status(401).json({ error: 'Invalid credentials' });
         }
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
-            console.log(`Login failed: Incorrect password for username: ${username} from ${req.ip}`);
+            console.log(`[LOGIN ATTEMPT] Failed: Incorrect password for username: ${username} from ${ip}`);
             return res.status(401).json({ error: 'Invalid credentials' });
         }
+
+        // Update online status and lastLogin time
+        console.log(`[LOGIN] User ${username} found. Current online status: ${user.online}. Attempting to set online: true and update lastLogin.`);
         const updatedUser = await User.findByIdAndUpdate(
             user._id,
-            { online: true },
-            { new: true }
-        ).select('-password -seed');
+            { online: true, lastLogin: new Date() }, // Set online and update lastLogin
+            { new: true } // Return the updated document
+        ).select('-password -seed'); // Exclude sensitive fields
+
         if (!updatedUser) {
-            console.warn(`Failed to set online status for user: ${username} from ${req.ip}`);
+            console.error(`[LOGIN CRITICAL] Failed to update user ${username} to online: true and set lastLogin from ${ip}. User might appear offline.`);
+            // Even if update fails, proceed with login but log critical error
+            const token = await jwt.sign({ id: user._id, username }, process.env.JWT_SECRET, { expiresIn: '30d' });
+            return res.json({ token, user: user.toObject({ getters: true, versionKey: false, transform: (doc, ret) => { delete ret.password; delete ret.seed; return ret; } }) });
         }
-        const token = await jwt.sign({ id: user._id, username }, process.env.JWT_SECRET, { expiresIn: '30d' });
-        console.log(`Login successful for username: ${username}, Online: ${updatedUser?.online}, IP: ${req.ip}`);
+        
+        console.log(`[LOGIN SUCCESS] User: ${updatedUser.username}, Online: ${updatedUser.online}, LastLogin: ${updatedUser.lastLogin}, IP: ${ip}`);
+        const token = await jwt.sign({ id: updatedUser._id, username: updatedUser.username }, process.env.JWT_SECRET, { expiresIn: '30d' });
         res.json({ token, user: updatedUser });
+
     } catch (error) {
-        console.error(`Login error for ${username} from ${req.ip}:`, error.message, error.stack);
+        console.error(`[LOGIN ERROR] For ${username} from ${ip}:`, error.message, error.stack);
         res.status(500).json({ error: 'Server error' });
     }
 });
