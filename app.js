@@ -8,6 +8,7 @@ const threadsRoutes = require('./routes/threads');
 const moderationRoutes = require('./routes/moderation');
 const blogRoutes = require('./routes/blogs');
 const profileRoutes = require('./routes/profileRoutes');
+const messagesRoutes = require('./routes/messages');
 const http = require('http');
 const WebSocketManager = require('./websocket');
 
@@ -60,6 +61,7 @@ app.use('/api/profile', profileRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/threads', threadsRoutes);
 app.use('/api/moderation', moderationRoutes);
+app.use('/api/messages', messagesRoutes);
 
 // Health Check Endpoint
 app.get('/health', (req, res) => {
@@ -80,6 +82,9 @@ app.use((err, req, res, next) => {
 const server = http.createServer(app);
 // Initialize WebSocket Manager
 const wsManager = new WebSocketManager(server);
+
+// Make WebSocket manager available to routes
+app.set('wsManager', wsManager);
 
 // Start Server
 server.listen(PORT, () => {

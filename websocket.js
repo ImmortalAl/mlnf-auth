@@ -151,6 +151,106 @@ class WebSocketManager {
     }
 
     /**
+     * Handle real-time chat messages
+     * @param {string} senderId - ID of message sender
+     * @param {Object} data - Message data
+     */
+    handleChatMessage(senderId, data) {
+        const { recipientId, content, messageId } = data;
+        
+        // Send message to recipient if they're online
+        const recipientWs = this.clients.get(recipientId);
+        if (recipientWs && recipientWs.readyState === WebSocket.OPEN) {
+            recipientWs.send(JSON.stringify({
+                type: 'newMessage',
+                senderId,
+                content,
+                messageId,
+                timestamp: new Date().toISOString()
+            }));
+        }
+        
+        // Send confirmation back to sender
+        const senderWs = this.clients.get(senderId);
+        if (senderWs && senderWs.readyState === WebSocket.OPEN) {
+            senderWs.send(JSON.stringify({
+                type: 'messageDelivered',
+                messageId,
+                recipientOnline: !!recipientWs
+            }));
+        }
+    }
+
+    /**
+     * Handle typing indicators
+     * @param {string} userId - ID of user typing
+     * @param {Object} data - Typing data
+     */
+    handleTypingIndicator(userId, data) {
+        const { recipientId, isTyping } = data;
+        
+        // Send typing indicator to recipient
+        const recipientWs = this.clients.get(recipientId);
+        if (recipientWs && recipientWs.readyState === WebSocket.OPEN) {
+            recipientWs.send(JSON.stringify({
+                type: 'typing',
+                senderId: userId,
+                isTyping
+            }));
+        }
+    }
+
+    /**
+     * Handle presence updates
+     * @param {string} userId - User ID
+     * @param {string} status - New status (online, away, busy, etc.)
+     */
+    handlePresenceUpdate(userId, status) {
+        // Update user session
+        if (this.userSessions.has(userId)) {
+            this.userSessions.set(userId, {
+                ...this.userSessions.get(userId),
+                status,
+                lastSeen: new Date()
+            });
+        }
+        
+        // Broadcast status update
+        this.broadcastUserStatus(userId, status);
+    }
+
+    /**
+     * Send message to specific user
+     * @param {string} userId - Target user ID
+     * @param {Object} message - Message object to send
+     */
+    sendToUser(userId, message) {
+        const userWs = this.clients.get(userId);
+        if (userWs && userWs.readyState === WebSocket.OPEN) {
+            userWs.send(JSON.stringify(message));
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Get online users
+     * @returns {Array} - Array of online user IDs
+     */
+    getOnlineUsers() {
+        return Array.from(this.clients.keys());
+    }
+
+    /**
+     * Check if user is online
+     * @param {string} userId - User ID to check
+     * @returns {boolean} - True if user is online
+     */
+    isUserOnline(userId) {
+        return this.clients.has(userId);
+    }
+
+    /**
      * Broadcast user status to all connected clients
      * @param {string} userId - User ID
      * @param {string} status - New status
