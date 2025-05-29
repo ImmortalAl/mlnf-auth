@@ -76,7 +76,7 @@ router.get('/me', auth, async (req, res) => {
 router.get('/:username', auth, async (req, res) => {
     try {
         const user = await User.findOne({ username: req.params.username })
-            .select('username displayName avatar status bio createdAt');
+            .select('username displayName avatar status bio createdAt online');
         if (!user) {
             console.log(`User not found for username: ${req.params.username} from ${req.ip}`);
             return res.status(404).json({ error: 'User not found' });
