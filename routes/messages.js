@@ -209,7 +209,15 @@ router.post('/feedback', async (req, res) => {
 // Admin: List all feedback messages
 router.get('/feedback', authMiddleware, async (req, res) => {
   try {
+    console.log('[DEBUG] /api/messages/feedback - req.user object:', JSON.stringify(req.user, null, 2));
+
     if (!req.user || req.user.role !== 'admin') {
+      console.error(
+        '[FORBIDDEN] Access to /api/messages/feedback denied. User:', 
+        req.user ? req.user.username : 'No user object', 
+        'Role:', 
+        req.user ? req.user.role : 'No role found on user object'
+      );
       return res.status(403).json({ error: 'Forbidden' });
     }
     const feedback = await Message.find({ isFeedback: true })
