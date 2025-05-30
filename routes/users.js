@@ -2,6 +2,8 @@
 const router = express.Router();
 const User = require('../models/User');
 const auth = require('../middleware/auth');
+const adminAuth = require('../middleware/adminAuth');
+const mongoose = require('mongoose');
 
 // Get online users
 router.get('/online', auth, async (req, res) => {
@@ -161,6 +163,72 @@ router.patch('/me', auth, async (req, res) => {
     } catch (error) {
         console.error(`Error updating user ${req.user.id} from ${req.ip}:`, error.message, error.stack);
         res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// ADMIN ROUTE: Update user by ID or Username
+router.put('/:identifier', auth, adminAuth, async (req, res) => {
+    const { identifier } = req.params;
+    const { displayName, email, status, bio, role, online, banned } = req.body;
+    const ip = req.ip;
+    const adminUserId = req.user.id;
+
+    console.log(`[ADMIN_USER_UPDATE] Request by Admin ID: ${adminUserId} to update user: ${identifier} from IP: ${ip}`);
+    console.log(`[ADMIN_USER_UPDATE] Received data:`, req.body);
+
+    const allowedUpdates = {};
+    if (displayName !== undefined) allowedUpdates.displayName = displayName;
+    if (email !== undefined) allowedUpdates.email = email;
+    if (status !== undefined) allowedUpdates.status = status;
+    if (bio !== undefined) allowedUpdates.bio = bio;
+    if (role !== undefined) allowedUpdates.role = role;
+    if (online !== undefined && typeof online === 'boolean') allowedUpdates.online = online;
+    if (banned !== undefined && typeof banned === 'boolean') allowedUpdates.banned = banned;
+
+    if (Object.keys(allowedUpdates).length === 0) {
+        console.log(`[ADMIN_USER_UPDATE] No updatable fields provided for user: ${identifier}`);
+        return res.status(400).json({ error: 'No updatable fields provided' });
+    }
+
+    try {
+        let userToUpdate;
+
+        if (mongoose.Types.ObjectId.isValid(identifier)) {
+            userToUpdate = await User.findById(identifier);
+        }
+        if (!userToUpdate) {
+            userToUpdate = await User.findOne({ username: identifier });
+        }
+
+        if (!userToUpdate) {
+            console.log(`[ADMIN_USER_UPDATE] User not found by identifier: ${identifier}`);
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        console.log(`[ADMIN_USER_UPDATE] Found user: ${userToUpdate.username} (ID: ${userToUpdate._id}). Applying updates:`, allowedUpdates);
+
+        if (allowedUpdates.email && allowedUpdates.email !== userToUpdate.email) {
+            const existingUserWithEmail = await User.findOne({ email: allowedUpdates.email });
+            if (existingUserWithEmail && existingUserWithEmail._id.toString() !== userToUpdate._id.toString()) {
+                console.log(`[ADMIN_USER_UPDATE] Email "${allowedUpdates.email}" is already taken by another user.`);
+                return res.status(400).json({ error: 'Email is already in use by another account.' });
+            }
+        }
+
+        Object.assign(userToUpdate, allowedUpdates);
+        await userToUpdate.save();
+
+        const updatedUser = await User.findById(userToUpdate._id).select('-password -seed');
+
+        console.log(`[ADMIN_USER_UPDATE] User ${userToUpdate.username} (ID: ${userToUpdate._id}) updated successfully by Admin ID: ${adminUserId}.`);
+        res.json(updatedUser);
+
+    } catch (error) {
+        console.error(`[ADMIN_USER_UPDATE_ERROR] Updating user ${identifier} by Admin ${adminUserId}:`, error.message, error.stack);
+        if (error.name === 'ValidationError') {
+            return res.status(400).json({ error: error.message });
+        }
+        res.status(500).json({ error: 'Server error while updating user' });
     }
 });
 
