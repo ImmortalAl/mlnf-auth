@@ -168,6 +168,7 @@ router.patch('/me', auth, async (req, res) => {
 
 // ADMIN ROUTE: Update user by ID or Username
 router.put('/:identifier', auth, adminAuth, async (req, res) => {
+    console.log('[PUT /api/users/:identifier] Route hit. req.user from auth middleware:', JSON.stringify(req.user));
     const { identifier } = req.params;
     const { displayName, email, status, bio, role, online, banned } = req.body;
     const ip = req.ip;
