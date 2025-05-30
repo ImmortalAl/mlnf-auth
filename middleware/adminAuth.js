@@ -1,5 +1,5 @@
 // back/middleware/adminAuth.js
-const User = require('./models/user'); // Assuming your User model is here
+const User = require('../models/User'); // Assuming your User model is here
 const mongoose = require('mongoose');
 
 module.exports = async function(req, res, next) {

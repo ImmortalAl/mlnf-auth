@@ -1,7 +1,7 @@
 // Script to make a user an admin
 require('dotenv').config();
 const mongoose = require('mongoose');
-const User = require('../models/user');
+const User = require('../models/User');
 
 // Use the same MongoDB URI as in app.js
 const mongoUri = 'mongodb+srv://immortal:cN0VuntETXgV7xD1@mlnf-cluster.ctoehaf.mongodb.net/mlnf?retryWrites=true&w=majority';
