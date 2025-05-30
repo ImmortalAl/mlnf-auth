@@ -1,5 +1,6 @@
 // back/middleware/adminAuth.js
-const User = require('../models/User'); // Assuming your User model is here
+const User = require('../models/user'); // Assuming your User model is here
+const mongoose = require('mongoose');
 
 module.exports = async function(req, res, next) {
     console.log('[AdminAuth Middleware] req.user received:', JSON.stringify(req.user)); // Log incoming req.user
@@ -12,8 +13,11 @@ module.exports = async function(req, res, next) {
 
     try {
         console.log(`[AdminAuth Middleware] Fetching user from DB with ID: ${req.user.id}`);
-        const user = await User.findById(req.user.id).select('role username'); // Select username for logging
-
+        // Use direct MongoDB query as a workaround for Mongoose schema mismatch
+        const db = mongoose.connection.db;
+        const usersCollection = db.collection('users');
+        const user = await usersCollection.findOne({ _id: new mongoose.Types.ObjectId(req.user.id) });
+        
         if (!user) {
             console.warn(`[AdminAuth Middleware] Denying access: User not found in DB for ID: ${req.user.id}. req.user was:`, JSON.stringify(req.user));
             return res.status(401).json({ error: 'User not found for authentication' });
