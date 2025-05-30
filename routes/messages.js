@@ -149,144 +149,96 @@ router.get('/conversations', authMiddleware, async (req, res) => {
   }
 });
 
-// Send feedback (as message to admin)
+// --- Eternal Feedback System ---
+// Helper: Find the admin user
+async function getAdminUser() {
+  return await User.findOne({ role: 'admin' });
+}
+
+// Submit feedback (anonymous or identified)
 router.post('/feedback', async (req, res) => {
   try {
     const { content, anonymous } = req.body;
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!content || !content.trim()) {
-      return res.status(400).json({ error: 'Feedback content is required' });
+    if (!content || typeof anonymous === 'undefined') {
+      return res.status(400).json({ error: 'Content and anonymous flag required' });
     }
-    
-    // Find the admin user (assuming username is 'immortalal' or similar)
-    const adminUser = await User.findOne({ 
-      $or: [
-        { username: { $regex: /^immortalal$/i } },
-        { username: { $regex: /^admin$/i } },
-        { role: 'admin' }
-      ]
-    });
-    
+    const adminUser = await getAdminUser();
     if (!adminUser) {
-      return res.status(500).json({ error: 'Admin user not found' });
+      return res.status(500).json({ error: 'No admin user found' });
     }
-    
     let senderId = null;
-    let senderInfo = null;
-    
-    // If not anonymous and has valid token, get user info
-    if (!anonymous && token) {
+    let feedbackMeta = {};
+    if (req.headers.authorization && !anonymous) {
+      // Authenticated and not anonymous
+      const token = req.headers.authorization.split(' ')[1];
+      // Use existing auth middleware logic if possible
+      // For now, fallback to user lookup by token (assume JWT)
+      const jwt = require('jsonwebtoken');
+      const config = require('../config/config');
+      let user = null;
       try {
-        const jwt = require('jsonwebtoken');
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        const user = await User.findById(decoded.id);
-        if (user) {
-          senderId = user._id;
-          senderInfo = {
-            username: user.username,
-            displayName: user.displayName,
-            avatar: user.avatar
-          };
-        }
-      } catch (error) {
-        console.log('Invalid token for feedback, treating as anonymous');
+        const decoded = jwt.verify(token, config.jwtSecret);
+        user = await User.findById(decoded.id);
+      } catch (e) {}
+      if (user) {
+        senderId = user._id;
+        feedbackMeta.username = user.username;
+        feedbackMeta.displayName = user.displayName;
       }
     }
-    
-    // Create feedback message with special flag
-    const feedbackMessage = new Message({
-      sender: senderId, // null for anonymous
+    if (!senderId) {
+      // Use a special "Anonymous" system user or fallback to admin as sender
+      senderId = adminUser._id;
+      feedbackMeta.visitor = true;
+    }
+    const message = new Message({
+      sender: senderId,
       recipient: adminUser._id,
       content: content.trim(),
       isFeedback: true,
-      feedbackMetadata: {
-        anonymous: anonymous || !senderId,
-        timestamp: new Date(),
-        userAgent: req.headers['user-agent'],
-        ip: req.ip,
-        ...(senderInfo && { senderInfo })
-      }
+      anonymous: !!anonymous,
+      feedbackMeta
     });
-    
-    await feedbackMessage.save();
-    
-    // Populate for response (if not anonymous)
-    if (senderId) {
-      await feedbackMessage.populate('sender', 'username displayName avatar');
-    }
-    await feedbackMessage.populate('recipient', 'username displayName avatar');
-    
-    // Send real-time notification to admin via WebSocket
-    const wsManager = req.app.get('wsManager');
-    if (wsManager) {
-      wsManager.sendToUser(adminUser._id.toString(), {
-        type: 'newFeedback',
-        message: {
-          _id: feedbackMessage._id,
-          sender: feedbackMessage.sender,
-          recipient: feedbackMessage.recipient,
-          content: feedbackMessage.content,
-          timestamp: feedbackMessage.timestamp,
-          isFeedback: true,
-          anonymous: feedbackMessage.feedbackMetadata.anonymous
-        }
-      });
-    }
-    
-    res.json({ 
-      success: true, 
-      message: 'Feedback sent successfully',
-      feedbackId: feedbackMessage._id 
-    });
-    
+    await message.save();
+    res.status(201).json({ message: 'Feedback sent successfully', data: message });
   } catch (error) {
     console.error('Feedback submission error:', error);
     res.status(500).json({ error: 'Failed to send feedback' });
   }
 });
 
-// Get all feedback messages (admin only)
+// Admin: List all feedback messages
 router.get('/feedback', authMiddleware, async (req, res) => {
   try {
-    // Check if user is admin
-    const user = await User.findById(req.user.id);
-    if (!user || (user.username.toLowerCase() !== 'immortalal' && user.role !== 'admin')) {
-      return res.status(403).json({ error: 'Admin access required' });
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Forbidden' });
     }
-    
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
-    const skip = (page - 1) * limit;
-    
-    // Get feedback messages
-    const feedbackMessages = await Message.find({ 
-      isFeedback: true,
-      recipient: req.user.id 
-    })
-    .populate('sender', 'username displayName avatar')
-    .sort({ timestamp: -1 })
-    .skip(skip)
-    .limit(limit);
-    
-    const total = await Message.countDocuments({ 
-      isFeedback: true,
-      recipient: req.user.id 
-    });
-    
-    res.json({
-      feedback: feedbackMessages,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit)
-      }
-    });
-    
+    const feedback = await Message.find({ isFeedback: true })
+      .sort({ timestamp: -1 })
+      .populate('sender', 'username displayName')
+      .populate('recipient', 'username displayName');
+    res.json(feedback);
   } catch (error) {
-    console.error('Get feedback error:', error);
+    console.error('Fetch feedback error:', error);
     res.status(500).json({ error: 'Failed to fetch feedback' });
+  }
+});
+
+// Admin: Delete a feedback message
+router.delete('/feedback/:id', authMiddleware, async (req, res) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    const { id } = req.params;
+    const deleted = await Message.findOneAndDelete({ _id: id, isFeedback: true });
+    if (!deleted) {
+      return res.status(404).json({ error: 'Feedback not found' });
+    }
+    res.json({ message: 'Feedback deleted' });
+  } catch (error) {
+    console.error('Delete feedback error:', error);
+    res.status(500).json({ error: 'Failed to delete feedback' });
   }
 });
 

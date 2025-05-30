@@ -4,9 +4,7 @@ const messageSchema = new mongoose.Schema({
   sender: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: function() {
-      return !this.isFeedback || !this.feedbackMetadata?.anonymous;
-    }
+    required: true,
   },
   recipient: {
     type: mongoose.Schema.Types.ObjectId,
@@ -22,22 +20,19 @@ const messageSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
-  // Feedback-specific fields
+  // Feedback system fields
   isFeedback: {
     type: Boolean,
     default: false,
   },
-  feedbackMetadata: {
-    anonymous: { type: Boolean, default: false },
-    timestamp: { type: Date },
-    userAgent: { type: String },
-    ip: { type: String },
-    senderInfo: {
-      username: { type: String },
-      displayName: { type: String },
-      avatar: { type: String }
-    }
-  }
+  anonymous: {
+    type: Boolean,
+    default: false,
+  },
+  feedbackMeta: {
+    type: Object,
+    default: {},
+  },
 });
 
 module.exports = mongoose.model('Message', messageSchema);
