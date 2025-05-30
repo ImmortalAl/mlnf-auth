@@ -15,20 +15,37 @@ const WebSocketManager = require('./websocket');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Enhanced CORS configuration
-app.use(cors({
-    origin: [
-        'https://dashing-belekoy-7a0095.netlify.app',
-        'https://mlnf.net',
-        'https://immortalal.github.io',
-        'http://localhost:3000' // For local testing
-    ],
+// Define allowed origins
+const allowedOrigins = [
+    'https://dashing-belekoy-7a0095.netlify.app',
+    'https://mlnf.net',
+    'https://immortalal.github.io',
+    'http://localhost:3000', // For local testing
+    'http://127.0.0.1:5500' // Common local alias, just in case
+];
+
+const corsOptions = {
+    origin: function (origin, callback) {
+        if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+            callback(null, true);
+        } else {
+            console.warn(`CORS: Blocked origin - ${origin}`);
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    preflightContinue: false,
-    optionsSuccessStatus: 204
-}));
+    optionsSuccessStatus: 204 // Explicitly set 204 for OPTIONS success
+};
+
+// Apply CORS middleware globally for all routes
+app.use(cors(corsOptions));
+
+// Explicitly handle preflight requests for all routes
+// This should come AFTER the main cors middleware if that middleware sets preflightContinue: true (which it isn't here)
+// or can be used as a more direct handler.
+app.options('*', cors(corsOptions)); // Ensures OPTIONS requests get a 204 with correct headers
 
 /* // REMOVING/COMMENTING OUT this explicit OPTIONS handler for now
 // Explicitly handle OPTIONS pre-flight requests
@@ -37,6 +54,12 @@ app.options('*', cors(), (req, res) => {
     res.status(204).send();
 });
 */
+
+// Logging middleware (place early to see all requests)
+app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl} from ${req.ip} (Origin: ${req.headers.origin})`);
+    next();
+});
 
 // Middleware
 app.use(bodyParser.json());
@@ -89,10 +112,4 @@ app.set('wsManager', wsManager);
 // Start Server
 server.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
-});
-
-// Log all incoming requests for debugging
-app.use((req, res, next) => {
-    console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl} from ${req.ip}`);
-    next();
 });
