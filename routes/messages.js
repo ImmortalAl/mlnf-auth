@@ -149,4 +149,145 @@ router.get('/conversations', authMiddleware, async (req, res) => {
   }
 });
 
+// Send feedback (as message to admin)
+router.post('/feedback', async (req, res) => {
+  try {
+    const { content, anonymous } = req.body;
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!content || !content.trim()) {
+      return res.status(400).json({ error: 'Feedback content is required' });
+    }
+    
+    // Find the admin user (assuming username is 'immortalal' or similar)
+    const adminUser = await User.findOne({ 
+      $or: [
+        { username: { $regex: /^immortalal$/i } },
+        { username: { $regex: /^admin$/i } },
+        { role: 'admin' }
+      ]
+    });
+    
+    if (!adminUser) {
+      return res.status(500).json({ error: 'Admin user not found' });
+    }
+    
+    let senderId = null;
+    let senderInfo = null;
+    
+    // If not anonymous and has valid token, get user info
+    if (!anonymous && token) {
+      try {
+        const jwt = require('jsonwebtoken');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const user = await User.findById(decoded.id);
+        if (user) {
+          senderId = user._id;
+          senderInfo = {
+            username: user.username,
+            displayName: user.displayName,
+            avatar: user.avatar
+          };
+        }
+      } catch (error) {
+        console.log('Invalid token for feedback, treating as anonymous');
+      }
+    }
+    
+    // Create feedback message with special flag
+    const feedbackMessage = new Message({
+      sender: senderId, // null for anonymous
+      recipient: adminUser._id,
+      content: content.trim(),
+      isFeedback: true,
+      feedbackMetadata: {
+        anonymous: anonymous || !senderId,
+        timestamp: new Date(),
+        userAgent: req.headers['user-agent'],
+        ip: req.ip,
+        ...(senderInfo && { senderInfo })
+      }
+    });
+    
+    await feedbackMessage.save();
+    
+    // Populate for response (if not anonymous)
+    if (senderId) {
+      await feedbackMessage.populate('sender', 'username displayName avatar');
+    }
+    await feedbackMessage.populate('recipient', 'username displayName avatar');
+    
+    // Send real-time notification to admin via WebSocket
+    const wsManager = req.app.get('wsManager');
+    if (wsManager) {
+      wsManager.sendToUser(adminUser._id.toString(), {
+        type: 'newFeedback',
+        message: {
+          _id: feedbackMessage._id,
+          sender: feedbackMessage.sender,
+          recipient: feedbackMessage.recipient,
+          content: feedbackMessage.content,
+          timestamp: feedbackMessage.timestamp,
+          isFeedback: true,
+          anonymous: feedbackMessage.feedbackMetadata.anonymous
+        }
+      });
+    }
+    
+    res.json({ 
+      success: true, 
+      message: 'Feedback sent successfully',
+      feedbackId: feedbackMessage._id 
+    });
+    
+  } catch (error) {
+    console.error('Feedback submission error:', error);
+    res.status(500).json({ error: 'Failed to send feedback' });
+  }
+});
+
+// Get all feedback messages (admin only)
+router.get('/feedback', authMiddleware, async (req, res) => {
+  try {
+    // Check if user is admin
+    const user = await User.findById(req.user.id);
+    if (!user || (user.username.toLowerCase() !== 'immortalal' && user.role !== 'admin')) {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+    
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+    
+    // Get feedback messages
+    const feedbackMessages = await Message.find({ 
+      isFeedback: true,
+      recipient: req.user.id 
+    })
+    .populate('sender', 'username displayName avatar')
+    .sort({ timestamp: -1 })
+    .skip(skip)
+    .limit(limit);
+    
+    const total = await Message.countDocuments({ 
+      isFeedback: true,
+      recipient: req.user.id 
+    });
+    
+    res.json({
+      feedback: feedbackMessages,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
+    
+  } catch (error) {
+    console.error('Get feedback error:', error);
+    res.status(500).json({ error: 'Failed to fetch feedback' });
+  }
+});
+
 module.exports = router;
