@@ -174,10 +174,9 @@ router.post('/feedback', async (req, res) => {
       // Use existing auth middleware logic if possible
       // For now, fallback to user lookup by token (assume JWT)
       const jwt = require('jsonwebtoken');
-      const config = require('../config/config');
       let user = null;
       try {
-        const decoded = jwt.verify(token, config.jwtSecret);
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
         user = await User.findById(decoded.id);
       } catch (e) {}
       if (user) {
