@@ -9,6 +9,7 @@ const moderationRoutes = require('./routes/moderation');
 const blogRoutes = require('./routes/blogs');
 const profileRoutes = require('./routes/profileRoutes');
 const messagesRoutes = require('./routes/messages');
+const owlRoutes = require('./routes/owls');
 const http = require('http');
 const WebSocketManager = require('./websocket');
 
@@ -21,7 +22,8 @@ const allowedOrigins = [
     'https://mlnf.net',
     'https://immortalal.github.io',
     'http://localhost:3000', // For local testing
-    'http://127.0.0.1:5500' // Common local alias, just in case
+    'http://127.0.0.1:5500', // Common local alias, just in case
+    'http://localhost:8080' // Python http.server default port
 ];
 
 const corsOptions = {
@@ -85,6 +87,7 @@ app.use('/api/users', usersRoutes);
 app.use('/api/threads', threadsRoutes);
 app.use('/api/moderation', moderationRoutes);
 app.use('/api/messages', messagesRoutes);
+app.use('/api', owlRoutes);
 
 // Health Check Endpoint
 app.get('/health', (req, res) => {
