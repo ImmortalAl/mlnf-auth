@@ -2,6 +2,7 @@
 const router = express.Router();
 const User = require('../models/User');
 const auth = require('../middleware/auth');
+const optionalAuth = require('../middleware/optionalAuth');
 const adminAuth = require('../middleware/adminAuth');
 const mongoose = require('mongoose');
 
@@ -102,7 +103,7 @@ router.get('/me', auth, async (req, res) => {
 });
 
 // Get user by username
-router.get('/:username', auth, async (req, res) => {
+router.get('/:username', optionalAuth, async (req, res) => {
     try {
         const user = await User.findOne({ username: req.params.username })
             .select('username displayName avatar status bio createdAt online');
@@ -110,7 +111,7 @@ router.get('/:username', auth, async (req, res) => {
             console.log(`User not found for username: ${req.params.username} from ${req.ip}`);
             return res.status(404).json({ error: 'User not found' });
         }
-        console.log(`Fetched user ${req.params.username} for ${req.user.id} from ${req.ip}`);
+        console.log(`Fetched user ${req.params.username} for ${req.user?.id || 'guest'} from ${req.ip}`);
         res.json(user);
     } catch (error) {
         console.error(`Error fetching user ${req.params.username} from ${req.ip}:`, error.message, error.stack);
