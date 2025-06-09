@@ -38,13 +38,8 @@ router.get('/', async (req, res) => {
         const limit = parseInt(req.query.limit) || 10;
         const skip = (page - 1) * limit;
         
-        // Build query filter to show published posts and legacy posts without a status
-        const filter = {
-            $or: [
-                { status: 'published' },
-                { status: { $exists: false } } // For backward compatibility
-            ]
-        };
+        // Build query filter - only show published posts for public view
+        const filter = { status: 'published' };
 
         if (req.query.author) {
             filter.author = req.query.author;
@@ -143,10 +138,7 @@ router.get('/user/:username', async (req, res) => {
 
         const blogs = await Blog.find({ 
             author: user._id,
-            $or: [
-                { status: 'published' },
-                { status: { $exists: false } } // For backward compatibility
-            ]
+            status: 'published' // Only show published posts on public profiles
         })
             .populate('author', 'username displayName avatar')
             .sort({ createdAt: -1 });
