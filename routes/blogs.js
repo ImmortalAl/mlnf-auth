@@ -2,6 +2,7 @@
 const router = express.Router();
 const Blog = require('../models/Blog');
 const auth = require('../middleware/auth');
+const User = require('../models/User');
 
 // Test endpoint to verify router mounting
 router.get('/test', (req, res) => res.json({ message: 'Blogs router is working' }));
@@ -99,6 +100,25 @@ router.get('/my', auth, async (req, res) => {
     } catch (error) {
         console.error('Error fetching user blogs:', error);
         res.status(500).json({ error: 'Failed to fetch your blog posts' });
+    }
+});
+
+// Get user's blog posts by username
+router.get('/user/:username', async (req, res) => {
+    try {
+        const user = await User.findOne({ username: req.params.username });
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        const blogs = await Blog.find({ author: user._id })
+            .populate('author', 'username displayName avatar')
+            .sort({ createdAt: -1 });
+            
+        res.json(blogs);
+    } catch (error) {
+        console.error('Error fetching user blogs by username:', error);
+        res.status(500).json({ error: 'Failed to fetch user blog posts' });
     }
 });
 
