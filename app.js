@@ -10,52 +10,22 @@ const blogRoutes = require('./routes/blogs');
 const profileRoutes = require('./routes/profileRoutes');
 const messagesRoutes = require('./routes/messages');
 const owlRoutes = require('./routes/owls');
+const commentsRoutes = require('./routes/comments');
 const http = require('http');
 const WebSocketManager = require('./websocket');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Define allowed origins
-const allowedOrigins = [
-    'https://dashing-belekoy-7a0095.netlify.app',
-    'https://mlnf.net',
-    'https://immortalal.github.io',
-    'http://localhost:3000', // For local testing
-    'http://127.0.0.1:5500', // Common local alias, just in case
-    'http://localhost:8080' // Python http.server default port
-];
-
 const corsOptions = {
-    origin: function (origin, callback) {
-        if (!origin || allowedOrigins.indexOf(origin) !== -1) {
-            callback(null, true);
-        } else {
-            console.warn(`CORS: Blocked origin - ${origin}`);
-            callback(new Error('Not allowed by CORS'));
-        }
-    },
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    origin: '*',
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
-    optionsSuccessStatus: 204 // Explicitly set 204 for OPTIONS success
+    optionsSuccessStatus: 204
 };
 
-// Apply CORS middleware globally for all routes
 app.use(cors(corsOptions));
-
-// Explicitly handle preflight requests for all routes
-// This should come AFTER the main cors middleware if that middleware sets preflightContinue: true (which it isn't here)
-// or can be used as a more direct handler.
-app.options('*', cors(corsOptions)); // Ensures OPTIONS requests get a 204 with correct headers
-
-/* // REMOVING/COMMENTING OUT this explicit OPTIONS handler for now
-// Explicitly handle OPTIONS pre-flight requests
-app.options('*', cors(), (req, res) => {
-    console.log(`Received OPTIONS request from ${req.ip} for ${req.originalUrl}`);
-    res.status(204).send();
-});
-*/
+app.options('*', cors(corsOptions));
 
 // Logging middleware (place early to see all requests)
 app.use((req, res, next) => {
@@ -87,6 +57,7 @@ app.use('/api/users', usersRoutes);
 app.use('/api/threads', threadsRoutes);
 app.use('/api/moderation', moderationRoutes);
 app.use('/api/messages', messagesRoutes);
+app.use('/api/comments', commentsRoutes);
 app.use('/api', owlRoutes);
 
 // Health Check Endpoint
