@@ -7,6 +7,7 @@ const usersRoutes = require('./routes/users');
 const threadsRoutes = require('./routes/threads');
 const moderationRoutes = require('./routes/moderation');
 const blogRoutes = require('./routes/blogs');
+const chronicleRoutes = require('./routes/chronicles');
 const profileRoutes = require('./routes/profileRoutes');
 const messagesRoutes = require('./routes/messages');
 const owlRoutes = require('./routes/owls');
@@ -49,9 +50,15 @@ mongoose.connect(mongoUri, {
     process.exit(1); // Exit if MongoDB connection fails
 });
 
+// --- Test Route ---
+app.get('/ping', (req, res) => {
+    res.status(200).send('pong');
+});
+
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/blogs', blogRoutes);
+app.use('/api/chronicles', chronicleRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/threads', threadsRoutes);
