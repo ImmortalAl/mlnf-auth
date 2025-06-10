@@ -48,6 +48,7 @@ const wsManager = new WebSocketManager(server);
 // Routes
 app.use('/auth', require('./routes/auth'));
 app.use('/users', require('./routes/users'));
+app.use('/api/chronicles', require('../routes/chronicles'));
 // ... other routes ...
 
 // Handle preflight requests explicitly (optional, as cors middleware should handle this)
