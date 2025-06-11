@@ -33,6 +33,10 @@ router.post('/', auth, async (req, res) => {
 
 // Get all threads
 router.get('/', async (req, res) => {
+    console.log(`[DEBUG] GET /threads request from ${req.ip}`);
+    console.log(`[DEBUG] Request headers:`, req.headers);
+    console.log(`[DEBUG] Query params:`, req.query);
+    
     try {
         const { page = 1, limit = 10, category, q } = req.query;
         const skip = (parseInt(page) - 1) * parseInt(limit);
@@ -46,13 +50,26 @@ router.get('/', async (req, res) => {
                 { content: { $regex: q, $options: 'i' } }
             ];
         }
+        
+        console.log(`[DEBUG] MongoDB query:`, query);
+        
         const threads = await Thread.find(query)
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(parseInt(limit))
             .populate('author', 'username displayName avatar');
         const total = await Thread.countDocuments(query);
-        console.log(`Fetched ${threads.length} threads for page ${page} from ${req.ip}`);
+        
+        console.log(`[DEBUG] Fetched ${threads.length} threads for page ${page} from ${req.ip}`);
+        console.log(`[DEBUG] Sending response:`, {
+            threadsCount: threads.length,
+            pagination: {
+                page: parseInt(page),
+                pages: Math.ceil(total / limit),
+                total
+            }
+        });
+        
         res.json({
             threads,
             pagination: {
@@ -62,7 +79,7 @@ router.get('/', async (req, res) => {
             }
         });
     } catch (error) {
-        console.error(`Error fetching threads from ${req.ip}:`, error.message, error.stack);
+        console.error(`[ERROR] Error fetching threads from ${req.ip}:`, error.message, error.stack);
         res.status(500).json({ error: 'Failed to fetch threads' });
     }
 });
