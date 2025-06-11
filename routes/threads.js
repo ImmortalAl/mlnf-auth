@@ -156,4 +156,38 @@ router.post('/:threadId/replies/:replyId/vote', auth, async (req, res) => {
     }
 });
 
+// Update a thread
+router.put('/:id', auth, async (req, res) => {
+    try {
+        const { title, content, category, tags } = req.body;
+        const thread = await Thread.findById(req.params.id);
+
+        if (!thread) {
+            return res.status(404).json({ error: 'Thread not found' });
+        }
+
+        // Ensure the user is the author
+        if (thread.author.toString() !== req.user.id) {
+            return res.status(403).json({ error: 'You are not authorized to edit this thread' });
+        }
+
+        // Update fields
+        thread.title = title || thread.title;
+        thread.content = content || thread.content;
+        thread.category = category || thread.category;
+        thread.tags = tags || thread.tags;
+        thread.updatedAt = Date.now();
+
+        await thread.save();
+
+        const updatedThread = await Thread.findById(thread._id)
+            .populate('author', 'username displayName avatar');
+
+        res.json(updatedThread);
+    } catch (error) {
+        console.error('Error updating thread:', error);
+        res.status(500).json({ error: 'Failed to update thread' });
+    }
+});
+
 module.exports = router;
