@@ -85,6 +85,76 @@ router.post('/', auth, async (req, res) => {
     }
 });
 
+// --- PUT to edit a chronicle (protected) ---
+router.put('/:id', auth, async (req, res) => {
+    const { title, content, sources, eventDate } = req.body;
+
+    if (!title || !content || !eventDate) {
+        return res.status(400).json({ error: 'Title, content, and event date are required.' });
+    }
+
+    try {
+        const chronicle = await Chronicle.findById(req.params.id);
+        
+        if (!chronicle) {
+            return res.status(404).json({ error: 'Chronicle not found' });
+        }
+
+        // Check if the user is the author of the chronicle
+        if (chronicle.author.toString() !== req.user.id) {
+            return res.status(403).json({ error: 'You can only edit your own chronicles' });
+        }
+
+        // sources can be a string separated by newlines
+        const sourcesArray = sources ? sources.split('\n').map(s => s.trim()).filter(s => s) : [];
+
+        // Update the chronicle
+        chronicle.title = title;
+        chronicle.content = content;
+        chronicle.sources = sourcesArray;
+        chronicle.eventDate = eventDate;
+
+        await chronicle.save();
+        
+        const populatedChronicle = await Chronicle.findById(chronicle._id).populate('author', 'username displayName avatar');
+        res.json(populatedChronicle);
+    } catch (error) {
+        console.error('Error updating chronicle:', error);
+        if (error.kind === 'ObjectId') {
+            return res.status(404).json({ error: 'Invalid chronicle ID' });
+        }
+        if (error.name === 'ValidationError') {
+            return res.status(400).json({ error: error.message });
+        }
+        res.status(500).json({ error: 'Failed to update chronicle' });
+    }
+});
+
+// --- DELETE a chronicle (protected) ---
+router.delete('/:id', auth, async (req, res) => {
+    try {
+        const chronicle = await Chronicle.findById(req.params.id);
+        
+        if (!chronicle) {
+            return res.status(404).json({ error: 'Chronicle not found' });
+        }
+
+        // Check if the user is the author of the chronicle
+        if (chronicle.author.toString() !== req.user.id) {
+            return res.status(403).json({ error: 'You can only delete your own chronicles' });
+        }
+
+        await Chronicle.findByIdAndDelete(req.params.id);
+        res.json({ message: 'Chronicle deleted successfully' });
+    } catch (error) {
+        console.error('Error deleting chronicle:', error);
+        if (error.kind === 'ObjectId') {
+            return res.status(404).json({ error: 'Invalid chronicle ID' });
+        }
+        res.status(500).json({ error: 'Failed to delete chronicle' });
+    }
+});
+
 // --- POST to validate a chronicle (protected) ---
 router.post('/:id/validate', auth, async (req, res) => {
     try {

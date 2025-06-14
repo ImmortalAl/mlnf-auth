@@ -12,6 +12,7 @@ const profileRoutes = require('./routes/profileRoutes');
 const messagesRoutes = require('./routes/messages');
 const owlRoutes = require('./routes/owls');
 const commentsRoutes = require('./routes/comments');
+const newsRoutes = require('./routes/news');
 const http = require('http');
 const WebSocketManager = require('./websocket');
 
@@ -67,6 +68,7 @@ app.use('/api/moderation', moderationRoutes);
 app.use('/api/messages', messagesRoutes);
 app.use('/api/comments', commentsRoutes);
 app.use('/api', owlRoutes);
+app.use('/api/news', newsRoutes);
 
 // Health Check Endpoint
 app.get('/health', (req, res) => {
