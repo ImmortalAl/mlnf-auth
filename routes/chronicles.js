@@ -14,7 +14,7 @@ router.get('/', async (req, res) => {
         const totalPages = Math.ceil(totalChronicles / limit);
 
         const chronicles = await Chronicle.find()
-            .populate('author', 'username displayName avatar')
+            .populate('author', 'username displayName avatar online')
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(limit);
@@ -36,7 +36,7 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
     try {
         const chronicle = await Chronicle.findById(req.params.id)
-            .populate('author', 'username displayName avatar')
+            .populate('author', 'username displayName avatar online')
             .populate('comments'); // Future: Add comment population
 
         if (!chronicle) {
@@ -73,7 +73,7 @@ router.post('/', auth, async (req, res) => {
         });
 
         await chronicle.save();
-        const populatedChronicle = await Chronicle.findById(chronicle._id).populate('author', 'username displayName avatar');
+        const populatedChronicle = await Chronicle.findById(chronicle._id).populate('author', 'username displayName avatar online');
         res.status(201).json(populatedChronicle);
     } catch (error) {
         console.error('Error creating chronicle:', error);
@@ -116,7 +116,7 @@ router.put('/:id', auth, async (req, res) => {
 
         await chronicle.save();
         
-        const populatedChronicle = await Chronicle.findById(chronicle._id).populate('author', 'username displayName avatar');
+        const populatedChronicle = await Chronicle.findById(chronicle._id).populate('author', 'username displayName avatar online');
         res.json(populatedChronicle);
     } catch (error) {
         console.error('Error updating chronicle:', error);

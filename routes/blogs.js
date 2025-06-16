@@ -23,7 +23,7 @@ router.post('/', auth, async (req, res) => {
             status: status || 'published'
         });
         await blog.save();
-        const populatedBlog = await Blog.findById(blog._id).populate('author', 'username displayName avatar');
+        const populatedBlog = await Blog.findById(blog._id).populate('author', 'username displayName avatar online');
         res.status(201).json(populatedBlog);
     } catch (error) {
         console.error('Error creating blog post:', error);
@@ -49,7 +49,7 @@ router.get('/', async (req, res) => {
         const totalPages = Math.ceil(totalBlogs / limit);
         
         const blogs = await Blog.find(filter)
-            .populate('author', 'username displayName avatar')
+            .populate('author', 'username displayName avatar online')
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(limit);
@@ -76,7 +76,7 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
     try {
         const blog = await Blog.findById(req.params.id)
-            .populate('author', 'username displayName avatar');
+            .populate('author', 'username displayName avatar online');
         
         if (!blog) {
             return res.status(404).json({ error: 'Blog post not found' });
@@ -103,7 +103,7 @@ router.get('/my', auth, async (req, res) => {
         }
         
         const blogs = await Blog.find(filter)
-            .populate('author', 'username displayName avatar')
+            .populate('author', 'username displayName avatar online')
             .sort({ createdAt: -1 });
         res.json(blogs);
     } catch (error) {
@@ -140,7 +140,7 @@ router.get('/user/:username', async (req, res) => {
             author: user._id,
             status: 'published' // Only show published posts on public profiles
         })
-            .populate('author', 'username displayName avatar')
+            .populate('author', 'username displayName avatar online')
             .sort({ createdAt: -1 });
             
         res.json(blogs);

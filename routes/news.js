@@ -14,7 +14,7 @@ router.get('/', authMiddleware, async (req, res) => {
     const totalPages = Math.ceil(totalNews / limit);
 
     const news = await News.find()
-      .populate('author', 'username displayName avatar')
+      .populate('author', 'username displayName avatar online')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
@@ -35,7 +35,7 @@ router.get('/', authMiddleware, async (req, res) => {
 // Get a single news item by ID
 router.get('/:id', authMiddleware, async (req, res) => {
   try {
-    const newsItem = await News.findById(req.params.id).populate('author', 'username displayName avatar');
+    const newsItem = await News.findById(req.params.id).populate('author', 'username displayName avatar online');
     
     if (!newsItem) {
       return res.status(404).json({ error: 'News item not found' });
