@@ -40,11 +40,11 @@ router.get('/online', auth, async (req, res) => {
 });
 
 // Get all users with pagination
-router.get('/', auth, async (req, res) => {
+router.get('/', optionalAuth, async (req, res) => {
     const { page = 1, limit = 12, q = '' } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const ip = req.ip;
-    const requesterId = req.user?.id || 'UnknownUser';
+    const requesterId = req.user?.id || 'guest';
     console.log(`[USERS_ALL] Request for page ${page}, limit ${limit}, query '${q}' from UserID: ${requesterId}, IP: ${ip}`);
     
     try {
@@ -71,15 +71,10 @@ router.get('/', auth, async (req, res) => {
         //     console.log(`  - User: ${u.username}, Online: ${u.online}, Status: '${u.status || 'N/A'}', Created: ${u.createdAt}`);
         // });
 
-        res.json({
-            users,
-            pagination: {
-                page: parseInt(page),
-                limit: parseInt(limit),
-                total,
-                pages: Math.ceil(total / limit)
-            }
-        });
+        // The frontend expects the array directly for the souls page.
+        // We will send the array directly.
+        res.json(users);
+        
     } catch (error) {
         console.error(`[USERS_ALL ERROR] For UserID: ${requesterId}, IP: ${ip}:`, error.message, error.stack);
         res.status(500).json({ error: 'Failed to fetch users' });
