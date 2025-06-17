@@ -59,8 +59,22 @@ app.use('/api/comments', commentsRoutes);
 app.use('/api', owlRoutes);
 
 // --- Test & Health Routes ---
-app.get('/ping', (req, res) => res.status(200).send('pong'));
+app.get('/ping', (req, res) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.status(200).send('pong');
+});
+// OPTIONS handler for health endpoint preflight
+app.options('/health', (req, res) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Cache-Control, Pragma, Expires');
+    res.status(200).end();
+});
+
 app.get('/health', (req, res) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Cache-Control, Pragma, Expires');
     res.status(200).json({
         status: 'OK',
         uptime: process.uptime(),

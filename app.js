@@ -70,8 +70,18 @@ app.use('/api/comments', commentsRoutes);
 app.use('/api', owlRoutes);
 app.use('/api/news', newsRoutes);
 
-// Health Check Endpoint
+// Health Check Endpoint with explicit CORS
+app.options('/health', (req, res) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Cache-Control, Pragma, Expires');
+    res.status(200).end();
+});
+
 app.get('/health', (req, res) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Cache-Control, Pragma, Expires');
     res.status(200).json({ 
         status: 'OK', 
         uptime: process.uptime(), 
