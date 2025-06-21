@@ -42,7 +42,12 @@ router.get('/', async (req, res) => {
         const filter = { status: 'published' };
 
         if (req.query.author) {
-            filter.author = req.query.author;
+            // Find user by username first, then use their ObjectId
+            const user = await User.findOne({ username: req.query.author });
+            if (!user) {
+                return res.status(404).json({ error: 'User not found' });
+            }
+            filter.author = user._id;
         }
 
         const totalBlogs = await Blog.countDocuments(filter);
