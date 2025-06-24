@@ -91,6 +91,40 @@ const threadSchema = new mongoose.Schema({
         trim: true,
         maxlength: 50,
         default: null
+    },
+    // Governance-specific fields
+    isProposal: {
+        type: Boolean,
+        default: false
+    },
+    proposalData: {
+        type: {
+            type: String,
+            enum: [
+                'feature_request',
+                'policy_change', 
+                'moderation_decision',
+                'content_guideline',
+                'community_standard',
+                'resource_allocation',
+                'platform_improvement'
+            ],
+            default: null
+        },
+        priority: {
+            type: String,
+            enum: ['low', 'medium', 'high', 'critical'],
+            default: 'medium'
+        },
+        estimatedEffort: {
+            type: String,
+            enum: ['minimal', 'low', 'medium', 'high', 'extensive'],
+            default: 'medium'
+        },
+        deadline: {
+            type: Date,
+            default: null
+        }
     }
 });
 

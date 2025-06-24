@@ -5,101 +5,183 @@ const proposalSchema = new mongoose.Schema({
         type: String,
         required: true,
         trim: true,
-        maxlength: 200
+        minlength: 5,
+        maxlength: 150
     },
     description: {
         type: String,
         required: true,
         trim: true,
-        maxlength: 2000
+        minlength: 20
     },
     type: {
         type: String,
-        enum: ['operational', 'moderation', 'constitutional', 'content_curation'],
-        required: true
+        required: true,
+        enum: [
+            'feature_request',
+            'policy_change', 
+            'moderation_decision',
+            'content_guideline',
+            'community_standard',
+            'resource_allocation',
+            'platform_improvement'
+        ],
+        default: 'feature_request'
     },
-    submittedBy: {
+    author: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
         required: true
     },
-    votingStart: {
-        type: Date,
-        default: Date.now
-    },
-    votingEnd: {
-        type: Date,
+    threadId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Thread',
         required: true
     },
     status: {
         type: String,
-        enum: ['draft', 'active', 'passed', 'rejected', 'expired'],
-        default: 'active'
+        enum: [
+            'draft',           // Being written/refined
+            'discussion',      // Open for community discussion
+            'voting',          // Active voting period
+            'passed',          // Approved by community
+            'failed',          // Rejected by community
+            'implemented',     // Completed by admin
+            'blocked',         // Cannot be implemented
+            'expired'          // Voting period ended without resolution
+        ],
+        default: 'discussion'
     },
-    implementationStatus: {
-        type: String,
-        enum: ['pending', 'in_progress', 'completed', 'failed'],
-        default: 'pending'
+    votingStartDate: {
+        type: Date,
+        default: null
     },
-    yesVotes: {
+    votingEndDate: {
+        type: Date,
+        default: null
+    },
+    votingPeriodDays: {
         type: Number,
-        default: 0
+        default: 7,
+        min: 1,
+        max: 30
     },
-    noVotes: {
+    passThreshold: {
         type: Number,
-        default: 0
+        default: 60, // 60% approval required
+        min: 50,
+        max: 90
     },
-    abstainVotes: {
+    minimumVotes: {
         type: Number,
-        default: 0
+        default: 5, // Minimum votes required for validity
+        min: 1
     },
-    totalVotes: {
-        type: Number,
-        default: 0
+    implementation: {
+        priority: {
+            type: String,
+            enum: ['low', 'medium', 'high', 'critical'],
+            default: 'medium'
+        },
+        estimatedEffort: {
+            type: String,
+            enum: ['minimal', 'low', 'medium', 'high', 'extensive'],
+            default: 'medium'
+        },
+        deadline: {
+            type: Date,
+            default: null
+        },
+        assignedTo: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User',
+            default: null
+        },
+        progressNotes: [{
+            note: String,
+            author: {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: 'User'
+            },
+            timestamp: {
+                type: Date,
+                default: Date.now
+            }
+        }],
+        completedAt: {
+            type: Date,
+            default: null
+        }
     },
-    requiredMajority: {
-        type: Number,
-        default: 0.5 // 50% majority
+    votes: {
+        approve: {
+            type: Number,
+            default: 0
+        },
+        reject: {
+            type: Number,
+            default: 0
+        },
+        abstain: {
+            type: Number,
+            default: 0
+        }
     },
-    tags: [{
-        type: String,
-        trim: true
-    }],
-    discussionThreadId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Thread'
+    createdAt: {
+        type: Date,
+        default: Date.now
+    },
+    updatedAt: {
+        type: Date,
+        default: Date.now
     }
-}, {
-    timestamps: true
 });
 
-// Index for performance
-proposalSchema.index({ status: 1, votingEnd: 1 });
-proposalSchema.index({ submittedBy: 1 });
+// Indexes for performance
+proposalSchema.index({ status: 1 });
 proposalSchema.index({ type: 1 });
+proposalSchema.index({ createdAt: -1 });
+proposalSchema.index({ votingEndDate: 1 });
 
-// Virtual to check if voting is still active
-proposalSchema.virtual('isVotingActive').get(function() {
-    return this.status === 'active' && new Date() <= this.votingEnd;
+// Calculate approval percentage
+proposalSchema.virtual('approvalPercentage').get(function() {
+    const totalVotes = this.votes.approve + this.votes.reject;
+    if (totalVotes === 0) return 0;
+    return Math.round((this.votes.approve / totalVotes) * 100);
 });
 
-// Method to calculate vote percentages
-proposalSchema.methods.getVotePercentages = function() {
-    if (this.totalVotes === 0) {
-        return { yes: 0, no: 0, abstain: 0 };
+// Calculate total vote count
+proposalSchema.virtual('totalVotes').get(function() {
+    return this.votes.approve + this.votes.reject + this.votes.abstain;
+});
+
+// Check if proposal has passed
+proposalSchema.virtual('hasPassed').get(function() {
+    return this.totalVotes >= this.minimumVotes && 
+           this.approvalPercentage >= this.passThreshold;
+});
+
+// Check if voting is active
+proposalSchema.virtual('isVotingActive').get(function() {
+    if (this.status !== 'voting') return false;
+    const now = new Date();
+    return now >= this.votingStartDate && now <= this.votingEndDate;
+});
+
+// Auto-update status based on voting results
+proposalSchema.pre('save', function(next) {
+    this.updatedAt = new Date();
+    
+    // Auto-transition from voting to passed/failed
+    if (this.status === 'voting' && !this.isVotingActive) {
+        if (this.totalVotes >= this.minimumVotes) {
+            this.status = this.hasPassed ? 'passed' : 'failed';
+        } else {
+            this.status = 'expired';
+        }
     }
-    return {
-        yes: (this.yesVotes / this.totalVotes * 100).toFixed(1),
-        no: (this.noVotes / this.totalVotes * 100).toFixed(1),
-        abstain: (this.abstainVotes / this.totalVotes * 100).toFixed(1)
-    };
-};
+    
+    next();
+});
 
-// Method to determine if proposal passed
-proposalSchema.methods.hasPassed = function() {
-    if (this.totalVotes === 0) return false;
-    return (this.yesVotes / this.totalVotes) >= this.requiredMajority;
-};
-
-const Proposal = mongoose.model('Proposal', proposalSchema);
-module.exports = Proposal; 
+module.exports = mongoose.model('Proposal', proposalSchema); 
