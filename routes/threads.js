@@ -128,13 +128,24 @@ router.get('/', async (req, res) => {
 
 // Get a single thread by ID
 router.get('/:id', async (req, res) => {
+    console.log(`[DEBUG] GET /threads/${req.params.id} request from ${req.ip}`);
+    console.log(`[DEBUG] Thread ID received:`, req.params.id);
+    
     try {
+        // Validate ObjectId format
+        if (!req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+            console.log(`[DEBUG] Invalid ObjectId format: ${req.params.id} from ${req.ip}`);
+            return res.status(400).json({ error: 'Invalid thread ID format' });
+        }
+
         const thread = await Thread.findById(req.params.id)
             .populate('author', 'username displayName avatar signature')
             .populate('replies.author', 'username displayName avatar signature');
         
+        console.log(`[DEBUG] Database query result for ${req.params.id}:`, thread ? 'Found' : 'Not found');
+        
         if (!thread) {
-            console.log(`Thread not found: ${req.params.id} from ${req.ip}`);
+            console.log(`[DEBUG] Thread not found: ${req.params.id} from ${req.ip}`);
             return res.status(404).json({ error: 'Thread not found' });
         }
 
@@ -168,11 +179,13 @@ router.get('/:id', async (req, res) => {
             });
         }
 
-        console.log(`Fetched thread ${req.params.id} from ${req.ip}`);
+        console.log(`[DEBUG] Successfully fetched and processed thread ${req.params.id} from ${req.ip}`);
+        console.log(`[DEBUG] Thread has ${threadObj.replies ? threadObj.replies.length : 0} replies`);
         res.json(threadObj);
     } catch (error) {
-        console.error(`Error fetching thread ${req.params.id} from ${req.ip}:`, error.message, error.stack);
-        res.status(500).json({ error: 'Failed to fetch thread' });
+        console.error(`[ERROR] Error fetching thread ${req.params.id} from ${req.ip}:`, error.message);
+        console.error(`[ERROR] Full error details:`, error);
+        res.status(500).json({ error: 'Failed to fetch thread', details: error.message });
     }
 });
 
