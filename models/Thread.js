@@ -52,11 +52,31 @@ const threadSchema = new mongoose.Schema({
         createdAt: {
             type: Date,
             default: Date.now
+        },
+        isAnonymous: {
+            type: Boolean,
+            default: false
+        },
+        anonymousDisplayName: {
+            type: String,
+            trim: true,
+            maxlength: 50,
+            default: null
         }
     }],
     isLocked: {
         type: Boolean,
         default: false
+    },
+    isAnonymous: {
+        type: Boolean,
+        default: false
+    },
+    anonymousDisplayName: {
+        type: String,
+        trim: true,
+        maxlength: 50,
+        default: null
     }
 });
 

@@ -6,30 +6,58 @@ const auth = require('../middleware/auth');
 // Create a new thread
 router.post('/', auth, async (req, res) => {
     try {
-        const { title, content, category, tags } = req.body;
+        const { title, content, category, tags, isAnonymous } = req.body;
         if (!title || !content || !category) {
             console.log(`Missing title, content, or category from ${req.ip}`);
             return res.status(400).json({ error: 'Title, content, and category are required' });
         }
+
+        // Generate anonymous display name if posting anonymously
+        let anonymousDisplayName = null;
+        if (isAnonymous) {
+            anonymousDisplayName = generateAnonymousName();
+        }
+
         const thread = new Thread({
             title,
             content,
             category,
             tags: tags || [],
             author: req.user.id,
+            isAnonymous: !!isAnonymous,
+            anonymousDisplayName,
             createdAt: new Date(),
             updatedAt: new Date(),
             replies: [],
             isLocked: false
         });
         await thread.save();
-        console.log(`Thread created by user ${req.user.id} from ${req.ip}: ${thread._id}`);
+        
+        console.log(`Thread created by user ${req.user.id} from ${req.ip}: ${thread._id} (Anonymous: ${!!isAnonymous})`);
         res.status(201).json(thread);
     } catch (error) {
         console.error(`Error creating thread from ${req.ip}:`, error.message, error.stack);
         res.status(500).json({ error: 'Failed to create thread' });
     }
 });
+
+// Helper function to generate anonymous display names
+function generateAnonymousName() {
+    const adjectives = [
+        'Eternal', 'Mystic', 'Ancient', 'Wise', 'Noble', 'Silent', 'Hidden',
+        'Timeless', 'Immortal', 'Celestial', 'Profound', 'Sacred', 'Enigmatic'
+    ];
+    
+    const nouns = [
+        'Seeker', 'Scholar', 'Wanderer', 'Guardian', 'Sage', 'Observer',
+        'Keeper', 'Whisper', 'Soul', 'Spirit', 'Flame', 'Shadow', 'Star'
+    ];
+
+    const adjective = adjectives[Math.floor(Math.random() * adjectives.length)];
+    const noun = nouns[Math.floor(Math.random() * nouns.length)];
+    
+    return `${adjective} ${noun}`;
+}
 
 // Get all threads
 router.get('/', async (req, res) => {
@@ -58,6 +86,20 @@ router.get('/', async (req, res) => {
             .skip(skip)
             .limit(parseInt(limit))
             .populate('author', 'username displayName avatar');
+
+        // Process threads to handle anonymous display
+        const processedThreads = threads.map(thread => {
+            const threadObj = thread.toObject();
+            if (threadObj.isAnonymous) {
+                threadObj.author = {
+                    username: threadObj.anonymousDisplayName || 'Anonymous Seeker',
+                    displayName: threadObj.anonymousDisplayName || 'Anonymous Seeker',
+                    avatar: null,
+                    isAnonymous: true
+                };
+            }
+            return threadObj;
+        });
         const total = await Thread.countDocuments(query);
         
         console.log(`[DEBUG] Fetched ${threads.length} threads for page ${page} from ${req.ip}`);
@@ -71,7 +113,7 @@ router.get('/', async (req, res) => {
         });
         
         res.json({
-            threads,
+            threads: processedThreads,
             pagination: {
                 page: parseInt(page),
                 pages: Math.ceil(total / limit),
@@ -96,8 +138,38 @@ router.get('/:id', async (req, res) => {
             return res.status(404).json({ error: 'Thread not found' });
         }
 
+        // Process thread to handle anonymous display
+        const threadObj = thread.toObject();
+        
+        // Handle anonymous thread author
+        if (threadObj.isAnonymous) {
+            threadObj.author = {
+                username: threadObj.anonymousDisplayName || 'Anonymous Seeker',
+                displayName: threadObj.anonymousDisplayName || 'Anonymous Seeker',
+                avatar: null,
+                signature: null,
+                isAnonymous: true
+            };
+        }
+
+        // Handle anonymous replies
+        if (threadObj.replies) {
+            threadObj.replies = threadObj.replies.map(reply => {
+                if (reply.isAnonymous) {
+                    reply.author = {
+                        username: reply.anonymousDisplayName || 'Anonymous Seeker',
+                        displayName: reply.anonymousDisplayName || 'Anonymous Seeker',
+                        avatar: null,
+                        signature: null,
+                        isAnonymous: true
+                    };
+                }
+                return reply;
+            });
+        }
+
         console.log(`Fetched thread ${req.params.id} from ${req.ip}`);
-        res.json(thread);
+        res.json(threadObj);
     } catch (error) {
         console.error(`Error fetching thread ${req.params.id} from ${req.ip}:`, error.message, error.stack);
         res.status(500).json({ error: 'Failed to fetch thread' });
@@ -107,7 +179,7 @@ router.get('/:id', async (req, res) => {
 // Add a reply to a thread
 router.post('/:id/replies', auth, async (req, res) => {
     try {
-        const { content } = req.body;
+        const { content, isAnonymous } = req.body;
         if (!content) {
             return res.status(400).json({ error: 'Reply content is required' });
         }
@@ -121,9 +193,17 @@ router.post('/:id/replies', auth, async (req, res) => {
             return res.status(403).json({ error: 'Thread is locked' });
         }
 
+        // Generate anonymous display name if replying anonymously
+        let anonymousDisplayName = null;
+        if (isAnonymous) {
+            anonymousDisplayName = generateAnonymousName();
+        }
+
         const reply = {
             content,
             author: req.user.id,
+            isAnonymous: !!isAnonymous,
+            anonymousDisplayName,
             createdAt: new Date()
         };
 
@@ -131,7 +211,7 @@ router.post('/:id/replies', auth, async (req, res) => {
         thread.updatedAt = new Date();
         await thread.save();
 
-        console.log(`Reply added to thread ${req.params.id} by user ${req.user.id} from ${req.ip}`);
+        console.log(`Reply added to thread ${req.params.id} by user ${req.user.id} from ${req.ip} (Anonymous: ${!!isAnonymous})`);
         res.status(201).json({ message: 'Reply added successfully', reply });
     } catch (error) {
         console.error(`Error adding reply to thread ${req.params.id} from ${req.ip}:`, error.message, error.stack);
