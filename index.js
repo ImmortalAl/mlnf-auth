@@ -12,6 +12,10 @@ const profileRoutes = require('./routes/profileRoutes');
 const messagesRoutes = require('./routes/messages');
 const owlRoutes = require('./routes/owls');
 const commentsRoutes = require('./routes/comments');
+const governanceRoutes = require('./routes/governance');
+const highlightsRoutes = require('./routes/highlights');
+const communityModRoutes = require('./routes/communityMod');
+const anonymousRoutes = require('./routes/anonymous');
 const cors = require('cors');
 const http = require('http');
 const WebSocketManager = require('./websocket');
@@ -56,6 +60,10 @@ app.use('/api/threads', threadsRoutes);
 app.use('/api/moderation', moderationRoutes);
 app.use('/api/messages', messagesRoutes);
 app.use('/api/comments', commentsRoutes);
+app.use('/api/governance', governanceRoutes);
+app.use('/api/highlights', highlightsRoutes);
+app.use('/api/community-mod', communityModRoutes);
+app.use('/api/anonymous', anonymousRoutes);
 app.use('/api', owlRoutes);
 
 // --- Test & Health Routes ---
