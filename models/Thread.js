@@ -53,6 +53,20 @@ const threadSchema = new mongoose.Schema({
             type: Date,
             default: Date.now
         },
+        editedAt: {
+            type: Date,
+            default: null
+        },
+        editHistory: [{
+            editedAt: {
+                type: Date,
+                default: Date.now
+            },
+            originalContent: {
+                type: String,
+                required: true
+            }
+        }],
         isAnonymous: {
             type: Boolean,
             default: false

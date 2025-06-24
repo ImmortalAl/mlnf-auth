@@ -236,6 +236,79 @@ router.post('/:id/vote', auth, async (req, res) => {
     }
 });
 
+// Edit a reply
+router.put('/:threadId/replies/:replyId', auth, async (req, res) => {
+    try {
+        const { content } = req.body;
+        const { threadId, replyId } = req.params;
+
+        if (!content || content.trim().length === 0) {
+            return res.status(400).json({ error: 'Reply content is required' });
+        }
+
+        const thread = await Thread.findById(threadId);
+        if (!thread) {
+            return res.status(404).json({ error: 'Thread not found' });
+        }
+
+        // Find the reply to edit
+        const replyIndex = thread.replies.findIndex(reply => reply._id.toString() === replyId);
+        if (replyIndex === -1) {
+            return res.status(404).json({ error: 'Reply not found' });
+        }
+
+        const reply = thread.replies[replyIndex];
+
+        // Check if user is the author
+        if (reply.author.toString() !== req.user.id) {
+            return res.status(403).json({ error: 'You are not authorized to edit this reply' });
+        }
+
+        // Check if reply is anonymous (cannot edit anonymous replies)
+        if (reply.isAnonymous) {
+            return res.status(403).json({ error: 'Anonymous replies cannot be edited' });
+        }
+
+        // Check if there are any replies after this one (prevent editing if others have replied)
+        const hasSubsequentReplies = thread.replies.slice(replyIndex + 1).length > 0;
+        if (hasSubsequentReplies) {
+            return res.status(403).json({ error: 'Cannot edit reply: other users have already responded' });
+        }
+
+        // Store original content in edit history
+        if (!reply.editHistory) {
+            reply.editHistory = [];
+        }
+        
+        reply.editHistory.push({
+            editedAt: new Date(),
+            originalContent: reply.content
+        });
+
+        // Update the reply
+        reply.content = content.trim();
+        reply.editedAt = new Date();
+        thread.updatedAt = new Date();
+
+        await thread.save();
+
+        console.log(`Reply ${replyId} edited by user ${req.user.id} from ${req.ip}`);
+        res.json({ 
+            message: 'Reply updated successfully', 
+            reply: {
+                _id: reply._id,
+                content: reply.content,
+                editedAt: reply.editedAt,
+                editHistory: reply.editHistory
+            }
+        });
+
+    } catch (error) {
+        console.error(`Error editing reply ${req.params.replyId} from ${req.ip}:`, error.message, error.stack);
+        res.status(500).json({ error: 'Failed to edit reply' });
+    }
+});
+
 // Vote on a reply (placeholder - for now just returns success)
 router.post('/:threadId/replies/:replyId/vote', auth, async (req, res) => {
     try {
