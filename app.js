@@ -14,6 +14,7 @@ const owlRoutes = require('./routes/owls');
 const commentsRoutes = require('./routes/comments');
 const newsRoutes = require('./routes/news');
 const governanceRoutes = require('./routes/governance');
+const communityModRoutes = require('./routes/communityMod');
 const http = require('http');
 const WebSocketManager = require('./websocket');
 
@@ -71,6 +72,7 @@ app.use('/api/comments', commentsRoutes);
 app.use('/api', owlRoutes);
 app.use('/api/news', newsRoutes);
 app.use('/api/governance', governanceRoutes);
+app.use('/api/community-mod', communityModRoutes);
 
 // Health Check Endpoint with explicit CORS
 app.options('/health', (req, res) => {

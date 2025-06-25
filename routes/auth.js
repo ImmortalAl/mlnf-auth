@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const router = express.Router();
@@ -13,7 +13,8 @@ router.post('/login', async (req, res) => {
             console.log(`[LOGIN ATTEMPT] Failed: Missing credentials from ${ip}`);
             return res.status(400).json({ error: 'Username and password are required' });
         }
-        const user = await User.findOne({ username });
+        // Use a case-insensitive regex to find the user
+        const user = await User.findOne({ username: new RegExp('^' + username + '$', 'i') });
         if (!user) {
             console.log(`[LOGIN ATTEMPT] Failed: User not found for username: ${username} from ${ip}`);
             return res.status(401).json({ error: 'Invalid credentials' });
