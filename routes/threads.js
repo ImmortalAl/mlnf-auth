@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const router = express.Router();
 const Thread = require('../models/Thread');
 const auth = require('../middleware/auth');
@@ -50,7 +50,17 @@ router.post('/', auth, async (req, res) => {
         console.error(`[THREAD CREATE] ERROR from ${req.ip}:`, error.message);
         console.error(`[THREAD CREATE] Stack:`, error.stack);
         console.error(`[THREAD CREATE] Full error:`, error);
-        res.status(500).json({ error: 'Failed to create thread' });
+        console.error(`[THREAD CREATE] Request body:`, {
+            title: req.body.title ? `${req.body.title.substring(0, 50)}${req.body.title.length > 50 ? '...' : ''}` : 'MISSING',
+            content: req.body.content ? `${req.body.content.length} chars` : 'MISSING',
+            category: req.body.category || 'MISSING',
+            tags: req.body.tags || 'none',
+            isAnonymous: !!req.body.isAnonymous
+        });
+        res.status(500).json({ 
+            error: 'Failed to create thread',
+            details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
     }
 });
 
