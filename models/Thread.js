@@ -109,17 +109,19 @@ const threadSchema = new mongoose.Schema({
                 'resource_allocation',
                 'platform_improvement'
             ],
-            default: null
+            required: function() { return this.isProposal; }
         },
         priority: {
             type: String,
             enum: ['low', 'medium', 'high', 'critical'],
-            default: 'medium'
+            default: 'medium',
+            required: function() { return this.isProposal; }
         },
         estimatedEffort: {
             type: String,
             enum: ['minimal', 'low', 'medium', 'high', 'extensive'],
-            default: 'medium'
+            default: 'medium',
+            required: function() { return this.isProposal; }
         },
         deadline: {
             type: Date,
