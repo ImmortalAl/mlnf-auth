@@ -7,8 +7,19 @@ const auth = require('../middleware/auth');
 router.post('/', auth, async (req, res) => {
     try {
         const { title, content, category, tags, isAnonymous } = req.body;
+        
+        // Debug logging
+        console.log(`[THREAD CREATE] User: ${req.user.id}, IP: ${req.ip}`);
+        console.log(`[THREAD CREATE] Request body:`, {
+            title: title ? title.substring(0, 50) + '...' : 'MISSING',
+            content: content ? `${content.length} chars` : 'MISSING',
+            category: category || 'MISSING',
+            tags: tags || 'none',
+            isAnonymous: !!isAnonymous
+        });
+        
         if (!title || !content || !category) {
-            console.log(`Missing title, content, or category from ${req.ip}`);
+            console.log(`[THREAD CREATE] Missing required fields from ${req.ip}`);
             return res.status(400).json({ error: 'Title, content, and category are required' });
         }
 
@@ -33,10 +44,12 @@ router.post('/', auth, async (req, res) => {
         });
         await thread.save();
         
-        console.log(`Thread created by user ${req.user.id} from ${req.ip}: ${thread._id} (Anonymous: ${!!isAnonymous})`);
+        console.log(`[THREAD CREATE] SUCCESS: User ${req.user.id} from ${req.ip}: ${thread._id} (Anonymous: ${!!isAnonymous})`);
         res.status(201).json(thread);
     } catch (error) {
-        console.error(`Error creating thread from ${req.ip}:`, error.message, error.stack);
+        console.error(`[THREAD CREATE] ERROR from ${req.ip}:`, error.message);
+        console.error(`[THREAD CREATE] Stack:`, error.stack);
+        console.error(`[THREAD CREATE] Full error:`, error);
         res.status(500).json({ error: 'Failed to create thread' });
     }
 });
