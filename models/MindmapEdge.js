@@ -39,7 +39,7 @@ mindmapEdgeSchema.statics.getUniqueLabels = function(userId = null) {
   if (userId) {
     // Get labels used by specific user first
     pipeline.push(
-      { $match: { creator: mongoose.Types.ObjectId(userId) } },
+      { $match: { creator: new mongoose.Types.ObjectId(userId) } },
       { $group: { _id: '$relationshipLabel', count: { $sum: 1 } } },
       { $sort: { count: -1 } },
       { $limit: 20 }
@@ -68,7 +68,7 @@ mindmapEdgeSchema.statics.searchLabels = function(query, userId = null) {
     pipeline.push(
       {
         $addFields: {
-          isUserLabel: { $eq: ['$creator', mongoose.Types.ObjectId(userId)] }
+          isUserLabel: { $eq: ['$creator', new mongoose.Types.ObjectId(userId)] }
         }
       },
       { $group: { 
