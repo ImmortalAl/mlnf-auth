@@ -17,6 +17,7 @@ const highlightsRoutes = require('./routes/highlights');
 const communityModRoutes = require('./routes/communityMod');
 const anonymousRoutes = require('./routes/anonymous');
 const activityRoutes = require('./routes/activity');
+const mindmapRoutes = require('./routes/mindmap');
 const cors = require('cors');
 const http = require('http');
 const WebSocketManager = require('./websocket');
@@ -66,6 +67,7 @@ app.use('/api/highlights', highlightsRoutes);
 app.use('/api/community-mod', communityModRoutes);
 app.use('/api/anonymous', anonymousRoutes);
 app.use('/api/activity', activityRoutes);
+app.use('/api/mindmap', mindmapRoutes);
 app.use('/api', owlRoutes);
 
 // --- Test & Health Routes ---
