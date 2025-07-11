@@ -4,6 +4,62 @@ const authJWT = require('../middleware/authJWT.js.js');
 const MindmapNode = require('../models/MindmapNode');
 const MindmapEdge = require('../models/MindmapEdge');
 
+// Fetch mindmap preview for front page (no auth required) 
+router.get('/preview', async (req, res) => {
+  try {
+    // Get top 5 nodes by credibility score (once credibility is implemented)
+    // For now, get the 5 most recent nodes
+    const nodes = await MindmapNode.find()
+      .populate('creator', 'username')
+      .sort({ createdAt: -1 })
+      .limit(5);
+    
+    // Get edges that connect these nodes
+    const nodeIds = nodes.map(n => n._id);
+    const edges = await MindmapEdge.find({
+      sourceNode: { $in: nodeIds },
+      targetNode: { $in: nodeIds }
+    }).populate('creator', 'username');
+    
+    // Get stats
+    const totalNodes = await MindmapNode.countDocuments();
+    const totalEdges = await MindmapEdge.countDocuments();
+    
+    const previewData = {
+      nodes: nodes.map(node => ({
+        _id: node._id,
+        title: node.title,
+        content: node.content,
+        credibility: { 
+          score: node.credibility?.score || 50,
+          votes: node.credibility?.votes || [],
+          citations: node.credibility?.citations || []
+        },
+        creator: { username: node.creator?.username || 'Unknown' },
+        tags: node.tags || [],
+        position: node.position || { x: Math.random() * 400 + 100, y: Math.random() * 200 + 100 }
+      })),
+      edges: edges.map(edge => ({
+        _id: edge._id,
+        sourceNode: edge.sourceNode,
+        targetNode: edge.targetNode,
+        relationshipLabel: edge.relationshipLabel || 'connected to',
+        creator: edge.creator?.username || 'Unknown'
+      })),
+      stats: {
+        totalNodes,
+        totalConnections: totalEdges,
+        recentActivity: nodes.length > 0 ? `Latest: "${nodes[0].title}"` : 'No recent activity'
+      }
+    };
+    
+    res.json(previewData);
+  } catch (error) {
+    console.error('Fetch mindmap preview error:', error.message);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // Get all nodes and edges for the mindmap
 router.get('/', async (req, res) => {
   try {
