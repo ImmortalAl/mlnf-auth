@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const router = express.Router();
 const User = require('../models/User');
+const LoginAttempt = require('../models/LoginAttempt');
 const auth = require('../middleware/auth');
 
 router.post('/login', async (req, res) => {
@@ -11,17 +12,38 @@ router.post('/login', async (req, res) => {
     try {
         if (!username || !password) {
             console.log(`[LOGIN ATTEMPT] Failed: Missing credentials from ${ip}`);
+            // Track failed attempt
+            await LoginAttempt.create({
+                username: username || 'unknown',
+                ip,
+                success: false,
+                reason: 'missing_credentials'
+            }).catch(err => console.error('Failed to log login attempt:', err));
             return res.status(400).json({ error: 'Username and password are required' });
         }
         // Use a case-insensitive regex to find the user
         const user = await User.findOne({ username: new RegExp('^' + username + '$', 'i') });
         if (!user) {
             console.log(`[LOGIN ATTEMPT] Failed: User not found for username: ${username} from ${ip}`);
+            // Track failed attempt
+            await LoginAttempt.create({
+                username,
+                ip,
+                success: false,
+                reason: 'user_not_found'
+            }).catch(err => console.error('Failed to log login attempt:', err));
             return res.status(401).json({ error: 'Invalid credentials' });
         }
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
             console.log(`[LOGIN ATTEMPT] Failed: Incorrect password for username: ${username} from ${ip}`);
+            // Track failed attempt
+            await LoginAttempt.create({
+                username,
+                ip,
+                success: false,
+                reason: 'incorrect_password'
+            }).catch(err => console.error('Failed to log login attempt:', err));
             return res.status(401).json({ error: 'Invalid credentials' });
         }
 
@@ -41,6 +63,15 @@ router.post('/login', async (req, res) => {
         }
         
         console.log(`[LOGIN SUCCESS] User: ${updatedUser.username}, Online: ${updatedUser.online}, LastLogin: ${updatedUser.lastLogin}, IP: ${ip}`);
+        
+        // Track successful attempt
+        await LoginAttempt.create({
+            username: updatedUser.username,
+            ip,
+            success: true,
+            reason: 'success'
+        }).catch(err => console.error('Failed to log login attempt:', err));
+        
         const token = await jwt.sign({ id: updatedUser._id, username: updatedUser.username }, process.env.JWT_SECRET, { expiresIn: '30d' });
         res.json({ token, user: updatedUser });
 

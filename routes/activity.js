@@ -5,6 +5,7 @@ const Blog = require('../models/Blog');
 const Comment = require('../models/Comment');
 const Thread = require('../models/Thread');
 const Vote = require('../models/Vote');
+const LoginAttempt = require('../models/LoginAttempt');
 const auth = require('../middleware/auth');
 
 // Real-time analytics endpoint
@@ -413,6 +414,69 @@ router.get('/', async (req, res) => {
     res.json(activities);
   } catch (error) {
     console.error('Fetch activity error:', error.message);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Platform health metrics endpoint
+router.get('/platform-health', auth, async (req, res) => {
+  try {
+    const now = new Date();
+    const last24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    
+    // Get failed login attempts in last 24 hours
+    const failedLogins = await LoginAttempt.countDocuments({
+      success: false,
+      timestamp: { $gte: last24h }
+    });
+    
+    // Calculate peak hours from user activity (last 7 days)
+    const last7d = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const loginData = await LoginAttempt.aggregate([
+      {
+        $match: {
+          success: true,
+          timestamp: { $gte: last7d }
+        }
+      },
+      {
+        $group: {
+          _id: { $hour: '$timestamp' },
+          count: { $sum: 1 }
+        }
+      },
+      {
+        $sort: { count: -1 }
+      },
+      {
+        $limit: 2
+      }
+    ]);
+    
+    // Format peak hours
+    let peakHours = '8-10pm EST'; // fallback
+    if (loginData.length > 0) {
+      const topHours = loginData.map(item => {
+        const hour = item._id;
+        const period = hour >= 12 ? 'pm' : 'am';
+        const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+        return `${displayHour}${period}`;
+      });
+      
+      if (topHours.length >= 2) {
+        peakHours = `${topHours[0]}-${topHours[1]} EST`;
+      } else {
+        peakHours = `${topHours[0]} EST`;
+      }
+    }
+    
+    res.json({
+      failedLogins,
+      peakHours
+    });
+    
+  } catch (error) {
+    console.error('Platform health error:', error.message);
     res.status(500).json({ error: 'Server error' });
   }
 });
