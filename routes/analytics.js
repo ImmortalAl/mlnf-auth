@@ -193,7 +193,8 @@ router.get('/summary', async (req, res) => {
             '7d': new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000),
             '30d': new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000),
             '90d': new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000),
-            '1y': new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000)
+            '1y': new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000),
+            'total': new Date(0) // All-time: start from epoch
         };
         const startDate = timeRanges[timeRange] || timeRanges['7d'];
 
@@ -333,7 +334,8 @@ router.get('/most-active', async (req, res) => {
             '7d': new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000),
             '30d': new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000),
             '90d': new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000),
-            '1y': new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000)
+            '1y': new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000),
+            'total': new Date(0) // All-time: start from epoch
         };
         const startDate = timeRanges[timeRange] || timeRanges['7d'];
 
