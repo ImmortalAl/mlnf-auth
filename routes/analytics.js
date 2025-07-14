@@ -57,6 +57,14 @@ const AnalyticsEngagement = mongoose.model('AnalyticsEngagement', new mongoose.S
 // Helper function to get IP and location
 async function getLocationFromIP(ip) {
     try {
+        // Skip geolocation for localhost and private IPs
+        if (ip === '127.0.0.1' || ip === '::1' || ip.startsWith('192.168.') || ip.startsWith('10.') || ip.startsWith('172.')) {
+            return {
+                country: 'Local',
+                city: 'Localhost'
+            };
+        }
+        
         // Use a free IP geolocation service
         const response = await fetch(`http://ip-api.com/json/${ip}?fields=country,city,status`);
         const data = await response.json();
@@ -261,9 +269,15 @@ router.get('/summary', async (req, res) => {
                 { $limit: 10 }
             ]),
             
-            // Search queries
+            // Search queries (only from external search engines)
             AnalyticsPageView.aggregate([
-                { $match: { timestamp: { $gte: startDate }, search_query: { $ne: null, $ne: '' } } },
+                { 
+                    $match: { 
+                        timestamp: { $gte: startDate }, 
+                        search_query: { $ne: null, $ne: '' },
+                        referrer_category: 'search'
+                    } 
+                },
                 { $group: { _id: '$search_query', count: { $sum: 1 } } },
                 { $sort: { count: -1 } },
                 { $limit: 10 }
