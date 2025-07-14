@@ -15,6 +15,8 @@ const commentsRoutes = require('./routes/comments');
 const newsRoutes = require('./routes/news');
 const governanceRoutes = require('./routes/governance');
 const communityModRoutes = require('./routes/communityMod');
+const analyticsRoutes = require('./routes/analytics');
+const activityRoutes = require('./routes/activity');
 const http = require('http');
 const WebSocketManager = require('./websocket');
 
@@ -73,6 +75,8 @@ app.use('/api', owlRoutes);
 app.use('/api/news', newsRoutes);
 app.use('/api/governance', governanceRoutes);
 app.use('/api/community-mod', communityModRoutes);
+app.use('/api/analytics', analyticsRoutes);
+app.use('/api/activity', activityRoutes);
 
 // Health Check Endpoint with explicit CORS
 app.options('/health', (req, res) => {
