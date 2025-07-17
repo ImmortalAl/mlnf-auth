@@ -18,6 +18,7 @@ router.get('/', auth, async (req, res) => {
 
 // Update user profile
 router.patch('/', auth, async (req, res) => {
+    console.log(`[PATCH /api/profile] Route hit. req.body:`, JSON.stringify(req.body));
     try {
         const updates = {};
         
@@ -69,6 +70,18 @@ router.patch('/', auth, async (req, res) => {
 
         if (!user) {
             return res.status(404).json({ error: 'User not found' });
+        }
+
+        // Broadcast status update via WebSocket if status changed
+        if (updates.status !== undefined) {
+            console.log(`[PROFILE_STATUS_UPDATE] User ${req.user.id} status changed to: "${updates.status}"`);
+            const wsManager = req.app.get('wsManager');
+            if (wsManager) {
+                console.log(`[PROFILE_STATUS_UPDATE] Broadcasting status update for user ${req.user.id}`);
+                wsManager.broadcastUserStatus(req.user.id, user.online ? 'online' : 'offline');
+            } else {
+                console.error(`[PROFILE_STATUS_UPDATE] WebSocket manager not found!`);
+            }
         }
 
         res.json(user);
