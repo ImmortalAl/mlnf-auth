@@ -155,9 +155,9 @@ router.patch('/me', auth, async (req, res) => {
         
         // Broadcast status update via WebSocket if status changed
         if (updates.status !== undefined) {
-            const websocket = require('../websocket');
-            if (websocket.instance) {
-                websocket.instance.broadcastUserStatus(req.user.id, updatedUser.online ? 'online' : 'offline');
+            const wsManager = req.app.get('wsManager');
+            if (wsManager) {
+                wsManager.broadcastUserStatus(req.user.id, updatedUser.online ? 'online' : 'offline');
             }
         }
         
@@ -228,9 +228,9 @@ router.put('/:identifier', auth, adminAuth, async (req, res) => {
         
         // Broadcast status update via WebSocket if status or online state changed
         if (allowedUpdates.status !== undefined || allowedUpdates.online !== undefined) {
-            const websocket = require('../websocket');
-            if (websocket.instance) {
-                websocket.instance.broadcastUserStatus(userToUpdate._id.toString(), updatedUser.online ? 'online' : 'offline');
+            const wsManager = req.app.get('wsManager');
+            if (wsManager) {
+                wsManager.broadcastUserStatus(userToUpdate._id.toString(), updatedUser.online ? 'online' : 'offline');
             }
         }
 
