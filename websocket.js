@@ -205,7 +205,7 @@ class WebSocketManager {
      * @param {string} userId - User ID
      * @param {string} status - New status (online, away, busy, etc.)
      */
-    handlePresenceUpdate(userId, status) {
+    async handlePresenceUpdate(userId, status) {
         // Update user session
         if (this.userSessions.has(userId)) {
             this.userSessions.set(userId, {
@@ -213,6 +213,17 @@ class WebSocketManager {
                 status,
                 lastSeen: new Date()
             });
+        }
+        
+        // Persist status to database
+        try {
+            const User = require('./models/User');
+            await User.findByIdAndUpdate(userId, { 
+                online: status === 'online',
+                lastLogin: new Date()
+            });
+        } catch (error) {
+            console.error('Failed to persist user status:', error);
         }
         
         // Broadcast status update

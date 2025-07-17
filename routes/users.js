@@ -152,6 +152,15 @@ router.patch('/me', auth, async (req, res) => {
         Object.assign(user, updates);
         await user.save();
         const updatedUser = await User.findById(req.user.id).select('-password -seed');
+        
+        // Broadcast status update via WebSocket if status changed
+        if (updates.status !== undefined) {
+            const websocket = require('../websocket');
+            if (websocket.instance) {
+                websocket.instance.broadcastUserStatus(req.user.id, updatedUser.online ? 'online' : 'offline');
+            }
+        }
+        
         console.log(`User ${req.user.id} updated from ${req.ip}:`, updates);
         console.log(`Bio field in updates: ${updates.bio || 'undefined'}`);
         console.log(`Bio field in saved user: ${updatedUser.bio || 'undefined'}`);
@@ -216,6 +225,14 @@ router.put('/:identifier', auth, adminAuth, async (req, res) => {
         await userToUpdate.save();
 
         const updatedUser = await User.findById(userToUpdate._id).select('-password -seed');
+        
+        // Broadcast status update via WebSocket if status or online state changed
+        if (allowedUpdates.status !== undefined || allowedUpdates.online !== undefined) {
+            const websocket = require('../websocket');
+            if (websocket.instance) {
+                websocket.instance.broadcastUserStatus(userToUpdate._id.toString(), updatedUser.online ? 'online' : 'offline');
+            }
+        }
 
         console.log(`[ADMIN_USER_UPDATE] User ${userToUpdate.username} (ID: ${userToUpdate._id}) updated successfully by Admin ID: ${adminUserId}.`);
         res.json(updatedUser);
