@@ -251,4 +251,58 @@ router.put('/:identifier', auth, adminAuth, async (req, res) => {
     }
 });
 
+// Delete user (Admin only)
+router.delete('/:identifier', [auth, adminAuth], async (req, res) => {
+    const { identifier } = req.params;
+    const adminUserId = req.user.id;
+    
+    console.log(`[ADMIN_USER_DELETE] Admin ${adminUserId} attempting to delete user: ${identifier}`);
+    
+    try {
+        let userToDelete;
+        
+        // Find user by ID or username
+        if (mongoose.Types.ObjectId.isValid(identifier)) {
+            userToDelete = await User.findById(identifier);
+        }
+        if (!userToDelete) {
+            userToDelete = await User.findOne({ username: identifier });
+        }
+        
+        if (!userToDelete) {
+            console.log(`[ADMIN_USER_DELETE] User not found by identifier: ${identifier}`);
+            return res.status(404).json({ error: 'User not found' });
+        }
+        
+        // Prevent self-deletion
+        if (userToDelete._id.toString() === adminUserId) {
+            console.log(`[ADMIN_USER_DELETE] Admin ${adminUserId} attempted to delete themselves`);
+            return res.status(400).json({ error: 'Cannot delete your own account' });
+        }
+        
+        const deletedUsername = userToDelete.username;
+        const deletedUserId = userToDelete._id.toString();
+        
+        // Delete user
+        await User.findByIdAndDelete(userToDelete._id);
+        
+        console.log(`[ADMIN_USER_DELETE] User ${deletedUsername} (ID: ${deletedUserId}) deleted successfully by Admin ID: ${adminUserId}`);
+        
+        // Note: Associated content (blogs, comments, etc.) will be orphaned
+        // This is intentional to preserve content history
+        
+        res.json({ 
+            message: 'User deleted successfully',
+            deletedUser: {
+                id: deletedUserId,
+                username: deletedUsername
+            }
+        });
+        
+    } catch (error) {
+        console.error(`[ADMIN_USER_DELETE_ERROR] Deleting user ${identifier} by Admin ${adminUserId}:`, error.message, error.stack);
+        res.status(500).json({ error: 'Server error while deleting user' });
+    }
+});
+
 module.exports = router;
