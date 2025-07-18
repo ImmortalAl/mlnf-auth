@@ -1,0 +1,56 @@
+Server running on 0.0.0.0:3001
+MongoDB connected
+[2025-07-14T23:24:19.960Z] POST /api/auth/login from 127.0.0.1 (Origin: undefined)
+[LOGIN ATTEMPT] Failed: Missing credentials from 127.0.0.1
+[2025-07-14T23:26:52.331Z] POST /api/auth/login from 127.0.0.1 (Origin: undefined)
+[LOGIN ATTEMPT] Failed: User not found for username: admin from 127.0.0.1
+[2025-07-14T23:31:58.757Z] POST /api/auth/login from 127.0.0.1 (Origin: undefined)
+[LOGIN] User admin found. Current online status: false. Attempting to set online: true and update lastLogin.
+[LOGIN SUCCESS] User: admin, Online: true, LastLogin: Mon Jul 14 2025 18:32:00 GMT-0500 (Central Daylight Time), IP: 127.0.0.1
+[2025-07-14T23:32:00.383Z] GET /api/messages/feedback from 127.0.0.1 (Origin: undefined)
+[DEBUG] /api/messages/feedback - req.user object: {
+  "_id": "6875935fa4dd69aeb6ae167f",
+  "username": "admin",
+  "password": "$2b$10$2rtRVYp/Y3x4wWSIY8H2MuEnJGLxs2zHMB7l7X2pNDuk8oHZAw/1C",
+  "email": "",
+  "displayName": "Administrator",
+  "online": true,
+  "role": "admin",
+  "banned": false,
+  "isActive": true,
+  "createdAt": "2025-07-14T23:31:43.778Z",
+  "updatedAt": "2025-07-14T23:32:00.044Z",
+  "__v": 0,
+  "lastLogin": "2025-07-14T23:32:00.032Z"
+}
+[2025-07-14T23:32:00.914Z] POST /api/messages/feedback from 127.0.0.1 (Origin: undefined)
+[2025-07-14T23:32:01.304Z] GET /api/messages/feedback from 127.0.0.1 (Origin: undefined)
+[2025-07-15T00:55:51.006Z] GET /api/debug/whoami from 127.0.0.1 (Origin: undefined)
+[2025-07-15T00:56:10.157Z] GET /api/messages/feedback from 127.0.0.1 (Origin: undefined)
+[2025-07-15T00:56:10.237Z] GET /api/feedback from 127.0.0.1 (Origin: undefined)
+[2025-07-15T00:56:10.328Z] GET /api/admin/feedback from 127.0.0.1 (Origin: undefined)
+[2025-07-15T00:57:07.227Z] GET /api/messages/feedback from 127.0.0.1 (Origin: undefined)
+[2025-07-15T00:57:07.285Z] GET /api/feedback from 127.0.0.1 (Origin: undefined)
+[2025-07-15T00:57:07.307Z] GET /api/admin/feedback from 127.0.0.1 (Origin: undefined)
+[2025-07-15T00:57:07.329Z] GET /api/contact from 127.0.0.1 (Origin: undefined)
+[2025-07-15T00:57:07.349Z] GET /api/messages/feedback from 127.0.0.1 (Origin: undefined)
+Auth middleware error: jwt malformed
+[2025-07-15T00:57:07.372Z] GET /api/feedback from 127.0.0.1 (Origin: undefined)
+[2025-07-15T00:57:07.390Z] GET /api/admin/feedback from 127.0.0.1 (Origin: undefined)
+[2025-07-15T00:57:07.411Z] GET /api/contact from 127.0.0.1 (Origin: undefined)
+[2025-07-15T00:57:24.261Z] GET /api/ from 127.0.0.1 (Origin: undefined)
+[2025-07-15T00:57:30.412Z] GET / from 127.0.0.1 (Origin: undefined)
+[2025-07-15T00:57:50.708Z] GET /api/health from 127.0.0.1 (Origin: undefined)
+[2025-07-15T00:57:50.781Z] GET /api/users from 127.0.0.1 (Origin: undefined)
+[USERS_ALL] Request for page 1, limit 12, query '' from UserID: guest, IP: 127.0.0.1
+[USERS_ALL] Fetched 12 users. Total matching query: 13.
+[2025-07-15T00:57:51.107Z] GET /api/auth from 127.0.0.1 (Origin: undefined)
+[2025-07-15T00:57:58.518Z] GET /api/users from 127.0.0.1 (Origin: undefined)
+[USERS_ALL] Request for page 1, limit 12, query '' from UserID: guest, IP: 127.0.0.1
+[USERS_ALL] Fetched 12 users. Total matching query: 13.
+[2025-07-15T00:58:07.405Z] GET /api/messages from 127.0.0.1 (Origin: undefined)
+[2025-07-15T00:58:07.485Z] GET /api/messages/feedback from 127.0.0.1 (Origin: undefined)
+[2025-07-15T00:58:49.363Z] GET /api/messages/feedback from 127.0.0.1 (Origin: undefined)
+[2025-07-15T00:58:49.424Z] GET /api/feedback from 127.0.0.1 (Origin: undefined)
+[2025-07-15T00:58:49.442Z] GET /api/admin/feedback from 127.0.0.1 (Origin: undefined)
+[2025-07-15T00:58:49.460Z] GET /api/contact from 127.0.0.1 (Origin: undefined)

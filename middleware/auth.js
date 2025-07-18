@@ -21,6 +21,12 @@ module.exports = async function (req, res, next) {
             console.warn(`[Auth Middleware] User not found in DB for ID: ${decoded.id}`);
             return res.status(401).json({ error: 'User linked to token not found' });
         }
+
+        // Check if user is banned
+        if (user.banned) {
+            console.warn(`[Auth Middleware] Banned user attempted to access protected route: ${user.username}`);
+            return res.status(403).json({ error: 'Your account has been banned from MLNF' });
+        }
         
         req.user = user;
 

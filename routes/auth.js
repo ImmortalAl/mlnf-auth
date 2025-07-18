@@ -47,6 +47,19 @@ router.post('/login', async (req, res) => {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
 
+        // Check if user is banned
+        if (user.banned) {
+            console.log(`[LOGIN ATTEMPT] Failed: Banned user attempted login: ${username} from ${ip}`);
+            // Track failed attempt
+            await LoginAttempt.create({
+                username,
+                ip,
+                success: false,
+                reason: 'user_banned'
+            }).catch(err => console.error('Failed to log login attempt:', err));
+            return res.status(403).json({ error: 'Your account has been banned from MLNF' });
+        }
+
         // Update online status and lastLogin time
         console.log(`[LOGIN] User ${username} found. Current online status: ${user.online}. Attempting to set online: true and update lastLogin.`);
         const updatedUser = await User.findByIdAndUpdate(
