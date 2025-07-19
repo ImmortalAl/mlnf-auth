@@ -252,7 +252,7 @@ router.put('/:identifier', auth, adminAuth, async (req, res) => {
 });
 
 // Delete user (Admin only)
-router.delete('/:identifier', [auth, adminAuth], async (req, res) => {
+router.delete('/:identifier', auth, adminAuth, async (req, res) => {
     const { identifier } = req.params;
     const adminUserId = req.user.id;
     
