@@ -12,8 +12,8 @@ router.get('/online', auth, async (req, res) => {
     const requesterId = req.user?.id || 'UnknownUser';
     console.log(`[USERS_ONLINE] Request received from UserID: ${requesterId}, IP: ${ip}`);
     try {
-        const users = await User.find({ online: true })
-            .select('username displayName avatar status online lastLogin')
+        const users = await User.find({ online: true, banned: { $ne: true } })
+            .select('username displayName avatar status online lastLogin banned')
             .sort({ username: 1 });
         
         console.log(`[USERS_ONLINE] Found ${users.length} online users. Data being sent:`);
