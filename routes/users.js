@@ -57,8 +57,24 @@ router.get('/', optionalAuth, async (req, res) => {
             }
             : {};
         
+        // Include banned field for admin users
+        let selectFields = 'username displayName avatar status bio createdAt online lastLogin';
+        
+        // Check if user is admin to include sensitive fields
+        if (req.user?.id) {
+            try {
+                const requester = await User.findById(req.user.id);
+                if (requester && requester.role === 'admin') {
+                    selectFields += ' banned role';
+                    console.log(`[USERS_ALL] Admin access detected, including banned field for ${requester.username}`);
+                }
+            } catch (err) {
+                console.log(`[USERS_ALL] Could not verify admin status: ${err.message}`);
+            }
+        }
+
         const users = await User.find(queryOptions)
-            .select('username displayName avatar status bio createdAt online lastLogin')
+            .select(selectFields)
             .skip(skip)
             .limit(parseInt(limit))
             .sort({ createdAt: -1 });
