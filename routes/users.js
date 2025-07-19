@@ -321,4 +321,56 @@ router.delete('/:identifier', auth, adminAuth, async (req, res) => {
     }
 });
 
+// Admin endpoint to clean up stale online users
+router.post('/cleanup-online-status', auth, adminAuth, async (req, res) => {
+    const adminUserId = req.user.id;
+    console.log(`[ADMIN_CLEANUP_ONLINE] Cleanup requested by Admin ID: ${adminUserId}`);
+    
+    try {
+        // Find users who are marked online but have old lastLogin (more than 30 days ago)
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+        
+        const staleUsers = await User.find({
+            online: true,
+            lastLogin: { $lt: thirtyDaysAgo }
+        }).select('username lastLogin');
+        
+        if (staleUsers.length === 0) {
+            console.log(`[ADMIN_CLEANUP_ONLINE] No stale online users found`);
+            return res.json({ 
+                message: 'No stale online users found',
+                cleaned: 0,
+                details: []
+            });
+        }
+        
+        // Set these users offline
+        const result = await User.updateMany(
+            {
+                online: true,
+                lastLogin: { $lt: thirtyDaysAgo }
+            },
+            { online: false }
+        );
+        
+        console.log(`[ADMIN_CLEANUP_ONLINE] Set ${result.modifiedCount} stale users offline. Users cleaned:`);
+        staleUsers.forEach(user => {
+            console.log(`  - ${user.username} (last login: ${user.lastLogin})`);
+        });
+        
+        res.json({
+            message: `Successfully cleaned up ${result.modifiedCount} stale online users`,
+            cleaned: result.modifiedCount,
+            details: staleUsers.map(user => ({
+                username: user.username,
+                lastLogin: user.lastLogin
+            }))
+        });
+        
+    } catch (error) {
+        console.error(`[ADMIN_CLEANUP_ONLINE_ERROR] Admin ${adminUserId}:`, error.message, error.stack);
+        res.status(500).json({ error: 'Server error during online status cleanup' });
+    }
+});
+
 module.exports = router;

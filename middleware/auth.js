@@ -37,6 +37,16 @@ module.exports = async function (req, res, next) {
             return res.status(401).json({ error: 'Invalid token' });
         }
         if (error.name === 'TokenExpiredError') {
+            // Attempt to set user offline when token expires
+            try {
+                const decoded = jwt.decode(token); // Decode without verification to get user ID
+                if (decoded && decoded.id) {
+                    await User.findByIdAndUpdate(decoded.id, { online: false });
+                    console.log(`[Auth Middleware] Set user ${decoded.id} offline due to token expiry`);
+                }
+            } catch (offlineError) {
+                console.warn(`[Auth Middleware] Could not set user offline on token expiry: ${offlineError.message}`);
+            }
             return res.status(401).json({ error: 'Token expired' });
         }
         res.status(500).json({ error: 'Server error during authentication' });
